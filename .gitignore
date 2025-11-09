@@ -62,3 +62,6 @@ nginx/ssl/
 backups/
 *.sql
 *.gz
+
+# Project documentation with sensitive info
+About the Proj/
