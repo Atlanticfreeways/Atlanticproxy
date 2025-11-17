@@ -85,9 +85,9 @@ atlantic-proxy/
 
 ### Phase 1: Foundation (Months 1-2)
 - [x] Project setup and database schema
-- [ ] User authentication and registration
-- [ ] Basic proxy management interface
-- [ ] Oxylabs API integration
+- [x] User authentication and registration
+- [x] Basic proxy management interface
+- [x] Oxylabs API integration
 
 ### Phase 2: Core Features (Months 3-4)
 - [ ] Usage tracking and analytics

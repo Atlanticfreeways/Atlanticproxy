@@ -160,7 +160,7 @@ export default function RegisterPage() {
           )}
 
           <div>
-            <button type="submit" disabled={loading || success} className="btn btn-primary w-full disabled:opacity-50 flex items-center justify-center">
+            <button type="submit" disabled={loading || !!success} className="btn btn-primary w-full disabled:opacity-50 flex items-center justify-center">
               {loading ? (
                 <>
                   <LoadingSpinner size="sm" className="mr-2" />

@@ -11,6 +11,7 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 .env.prod
+.env.prod.example
 
 # Build outputs
 .next/
@@ -24,6 +25,7 @@ build/
 # Logs
 logs/
 *.log
+log
 
 # Runtime data
 pids/
@@ -63,5 +65,26 @@ backups/
 *.sql
 *.gz
 
-# Project documentation with sensitive info
+# Sensitive project documentation
 About the Proj/
+
+# Project management files
+BACKEND_ARCHITECTURE.md
+BACKEND_TECH_CHOICE.md
+DEVELOPMENT_ROADMAP.md
+FIXED.md
+GO_BACKEND_PLAN.md
+INTEGRATION_PLAN.md
+LAUNCH.md
+NEXT_STEPS.md
+OPENSOURCE_DEPLOYMENT.md
+PROJECT_OVERVIEW.md
+TASK_CHECKLIST.md
+TECH_STACK.md
+
+# Temporary deployment configs
+vercel-test.json
+railway.json
+fly.toml
+Dockerfile
+RENDER_DEPLOY.md
