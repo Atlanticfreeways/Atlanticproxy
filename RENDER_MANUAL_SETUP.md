@@ -10,8 +10,8 @@
 
 ### Environment Variables:
 - `PORT`: `10000`
-- `DATABASE_URL`: (connect to PostgreSQL database)
-- `JWT_SECRET`: (generate random string)
+- `DATABASE_URL`: postgresql://atlanticproxy_user:VP6P6NR6MjkCLtU1jvPIhxZxu5n0cju9@dpg-d4dsrcadbo4c73ful880-a/atlanticproxy
+- `JWT_SECRET`: 302c79185a6ef52005a5ebc969902bb0
 - `FRONTEND_URL`: `https://your-frontend-url.onrender.com`
 
 ## Frontend Service Configuration
