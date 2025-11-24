@@ -1,0 +1,117 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Set up Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Run backend tests
+        run: cd backend && go test -v -race ./...
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db?sslmode=disable
+
+      - name: Build frontend
+        run: cd frontend && npm ci && npm run build
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+        if: secrets.DOCKER_USERNAME != ''
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.prod
+          push: ${{ secrets.DOCKER_USERNAME != '' }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/atlantic-proxy-backend:latest,${{ secrets.DOCKER_USERNAME }}/atlantic-proxy-backend:${{ github.sha }}
+        if: secrets.DOCKER_USERNAME != ''
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.prod
+          push: ${{ secrets.DOCKER_USERNAME != '' }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/atlantic-proxy-frontend:latest,${{ secrets.DOCKER_USERNAME }}/atlantic-proxy-frontend:${{ github.sha }}
+        if: secrets.DOCKER_USERNAME != ''
+
+      - name: Build backend image (local)
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.prod
+          push: false
+          tags: atlantic-proxy-backend:latest
+        if: secrets.DOCKER_USERNAME == ''
+
+      - name: Build frontend image (local)
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.prod
+          push: false
+          tags: atlantic-proxy-frontend:latest
+        if: secrets.DOCKER_USERNAME == ''
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Deploy notification
+        run: |
+          echo "✅ Build and push completed successfully!"
+          echo "📦 Backend image: ${{ secrets.DOCKER_USERNAME }}/atlantic-proxy-backend:latest"
+          echo "📦 Frontend image: ${{ secrets.DOCKER_USERNAME }}/atlantic-proxy-frontend:latest"
+          echo ""
+          echo "🚀 Next steps:"
+          echo "1. Pull the latest images"
+          echo "2. Update your deployment configuration"
+          echo "3. Restart services with new images"

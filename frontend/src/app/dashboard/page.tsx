@@ -25,6 +25,11 @@ export default function DashboardPage() {
     }
   }, [user, authLoading, router]);
 
+  const handleLogout = () => {
+    logout();
+    router.push('/auth/login');
+  };
+
   const loadDashboardStats = async () => {
     try {
       const data = await api.getDashboardStats();
@@ -63,8 +68,8 @@ export default function DashboardPage() {
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500">{user.email}</span>
               <button
-                onClick={logout}
-                className="btn btn-secondary text-sm"
+                onClick={handleLogout}
+                className="btn btn-secondary text-sm transition"
               >
                 Logout
               </button>

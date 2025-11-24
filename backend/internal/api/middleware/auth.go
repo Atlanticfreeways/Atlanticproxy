@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/atlanticproxy/backend/pkg/jwt"
+	"atlanticproxy/backend/pkg/jwt"
 	"github.com/gin-gonic/gin"
 )
 

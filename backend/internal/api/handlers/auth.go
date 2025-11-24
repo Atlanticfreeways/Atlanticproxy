@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/atlanticproxy/backend/internal/models"
-	"github.com/atlanticproxy/backend/pkg/jwt"
+	"atlanticproxy/backend/internal/models"
+	"atlanticproxy/backend/pkg/jwt"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"

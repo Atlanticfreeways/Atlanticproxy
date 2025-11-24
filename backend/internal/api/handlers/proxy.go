@@ -1,100 +1,236 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
-	"time"
 
-	"github.com/atlanticproxy/backend/internal/models"
+	"atlanticproxy/backend/internal/models"
+	"atlanticproxy/backend/internal/services"
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 )
 
 type ProxyHandler struct {
-	db              *sqlx.DB
-	oxylabsUsername string
-	oxylabsPassword string
+	proxyService *services.ProxyService
 }
 
-func NewProxyHandler(db *sqlx.DB, oxylabsUsername, oxylabsPassword string) *ProxyHandler {
+func NewProxyHandler(proxyService *services.ProxyService) *ProxyHandler {
 	return &ProxyHandler{
-		db:              db,
-		oxylabsUsername: oxylabsUsername,
-		oxylabsPassword: oxylabsPassword,
+		proxyService: proxyService,
 	}
 }
 
-func (h *ProxyHandler) Connect(c *gin.Context) {
-	userID := c.GetInt("user_id")
-
-	// Generate unique client ID
-	clientID := fmt.Sprintf("client-%d-%d", userID, time.Now().Unix())
-
-	// Create connection record
-	_, err := h.db.Exec(
-		`INSERT INTO proxy_connections (user_id, client_id, status, connected_at) 
-		 VALUES ($1, $2, 'connecting', NOW())`,
-		userID, clientID,
-	)
+// GetLocations retrieves all proxy locations
+// GET /api/proxy/locations
+func (h *ProxyHandler) GetLocations(c *gin.Context) {
+	region := c.Query("region")
+	
+	locations, err := h.proxyService.GetLocations(region)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create connection"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Return credentials
-	c.JSON(http.StatusOK, gin.H{
-		"client_id":         clientID,
-		"oxylabs_username":  h.oxylabsUsername,
-		"oxylabs_password":  h.oxylabsPassword,
-		"endpoints": []string{
-			"pr.oxylabs.io:7777",
-			"pr.oxylabs.io:8000",
-		},
-	})
+	c.JSON(http.StatusOK, locations)
 }
 
-func (h *ProxyHandler) GetStatus(c *gin.Context) {
-	userID := c.GetInt("user_id")
+// SaveConfiguration saves proxy configuration
+// POST /api/proxy/configuration
+func (h *ProxyHandler) SaveConfiguration(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 
-	var connection models.ProxyConnection
-	err := h.db.Get(&connection,
-		`SELECT * FROM proxy_connections 
-		 WHERE user_id = $1 AND disconnected_at IS NULL 
-		 ORDER BY connected_at DESC LIMIT 1`,
-		userID,
-	)
+	var req struct {
+		Protocol           string   `json:"protocol" binding:"required"`
+		ISPTier            string   `json:"ispTier" binding:"required"`
+		Locations          []string `json:"locations" binding:"required"`
+		LoadBalancingMode  string   `json:"loadBalancingMode" binding:"required"`
+	}
 
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	config, err := h.proxyService.SaveConfiguration(userID, &models.ProxyConfiguration{
+		Protocol:          req.Protocol,
+		ISPTier:           req.ISPTier,
+		Locations:         req.Locations,
+		LoadBalancingMode: req.LoadBalancingMode,
+	})
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"connected": false,
-			"status":    "disconnected",
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"connected":  true,
-		"status":     connection.Status,
-		"client_id":  connection.ClientID,
-		"ip_address": connection.IPAddress,
-		"location":   connection.Location,
+		"success":    true,
+		"configId":   config.ID,
 	})
 }
 
-func (h *ProxyHandler) Disconnect(c *gin.Context) {
-	userID := c.GetInt("user_id")
-
-	_, err := h.db.Exec(
-		`UPDATE proxy_connections 
-		 SET status = 'disconnected', disconnected_at = NOW() 
-		 WHERE user_id = $1 AND disconnected_at IS NULL`,
-		userID,
-	)
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to disconnect"})
+// GetConfiguration retrieves current proxy configuration
+// GET /api/proxy/configuration
+func (h *ProxyHandler) GetConfiguration(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Disconnected successfully"})
+	config, err := h.proxyService.GetConfiguration(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, config)
+}
+
+// UpdateSessionSettings updates session persistence settings
+// PUT /api/proxy/session-settings
+func (h *ProxyHandler) UpdateSessionSettings(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		Enabled              bool `json:"enabled"`
+		SessionDuration      int  `json:"sessionDuration" binding:"required,min=5,max=120"`
+		SessionTimeout       int  `json:"sessionTimeout" binding:"required,min=10,max=300"`
+		IPStickiness         bool `json:"ipStickiness"`
+		CookiePreservation   bool `json:"cookiePreservation"`
+		HeaderPreservation   bool `json:"headerPreservation"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.proxyService.UpdateSessionSettings(userID, &models.SessionSettings{
+		Enabled:            req.Enabled,
+		SessionDuration:    req.SessionDuration,
+		SessionTimeout:     req.SessionTimeout,
+		IPStickiness:       req.IPStickiness,
+		CookiePreservation: req.CookiePreservation,
+		HeaderPreservation: req.HeaderPreservation,
+	}); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// UpdateCustomHeaders updates custom HTTP headers
+// PUT /api/proxy/custom-headers
+func (h *ProxyHandler) UpdateCustomHeaders(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		Headers []struct {
+			Name    string `json:"name" binding:"required"`
+			Value   string `json:"value" binding:"required"`
+			Enabled bool   `json:"enabled"`
+		} `json:"headers" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	headers := make([]*models.CustomHeader, len(req.Headers))
+	for i, h := range req.Headers {
+		headers[i] = &models.CustomHeader{
+			Name:    h.Name,
+			Value:   h.Value,
+			Enabled: h.Enabled,
+		}
+	}
+
+	if err := h.proxyService.UpdateCustomHeaders(userID, headers); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// UpdateThrottlingSettings updates request throttling settings
+// PUT /api/proxy/throttling-settings
+func (h *ProxyHandler) UpdateThrottlingSettings(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		Enabled               bool `json:"enabled"`
+		RequestsPerSecond     int  `json:"requestsPerSecond" binding:"required,min=1,max=100"`
+		BurstSize             int  `json:"burstSize" binding:"required,min=1,max=100"`
+		DelayBetweenRequests  int  `json:"delayBetweenRequests" binding:"required,min=0,max=1000"`
+		ConnectionLimit       int  `json:"connectionLimit" binding:"required,min=1,max=200"`
+		BandwidthLimit        int  `json:"bandwidthLimit" binding:"required,min=1,max=500"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.proxyService.UpdateThrottlingSettings(userID, &models.ThrottlingSettings{
+		Enabled:              req.Enabled,
+		RequestsPerSecond:    req.RequestsPerSecond,
+		BurstSize:            req.BurstSize,
+		DelayBetweenRequests: req.DelayBetweenRequests,
+		ConnectionLimit:      req.ConnectionLimit,
+		BandwidthLimit:       req.BandwidthLimit,
+	}); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// UpdateProxyAuthentication updates proxy authentication
+// PUT /api/proxy/authentication
+func (h *ProxyHandler) UpdateProxyAuthentication(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		Username   string `json:"username" binding:"required"`
+		Password   string `json:"password" binding:"required"`
+		AuthMethod string `json:"authMethod" binding:"required,oneof=basic digest bearer"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.proxyService.UpdateProxyAuthentication(userID, &models.ProxyAuthentication{
+		Username:   req.Username,
+		Password:   req.Password,
+		AuthMethod: req.AuthMethod,
+	}); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }

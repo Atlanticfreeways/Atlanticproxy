@@ -1,96 +1,74 @@
-.PHONY: build clean install test run
+# Atlantic Proxy - Build System
+.PHONY: build test clean install deps
 
-BINARY_NAME=atlantic-proxy-client
-BUILD_DIR=build
-VERSION=$(shell git describe --tags --always --dirty)
-LDFLAGS=-ldflags "-X main.version=$(VERSION)"
-
+# Build the Atlantic test applications
 build:
-	@echo "Building AtlanticProxy Client..."
-	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/service
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/service
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/service
+	@echo "Building Atlantic Proxy applications..."
+	cd cmd/atlantic-test && go build -o ../../bin/atlantic-test .
+	cd cmd/killswitch-test && go build -o ../../bin/killswitch-test .
 
-build-local:
-	@echo "Building for local platform..."
-	@mkdir -p $(BUILD_DIR)
-	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/service
+# Install dependencies
+deps:
+	@echo "Installing dependencies..."
+	go mod tidy
+	go mod download
 
+# Test the traffic interceptor (requires root)
+test: build
+	@echo "Testing Atlantic Traffic Interceptor..."
+	@echo "WARNING: This requires root privileges and will modify system networking"
+	@echo "Press Ctrl+C within 5 seconds to cancel..."
+	@sleep 5
+	sudo ./bin/atlantic-test
+
+# Test the kill switch (requires root)
+test-killswitch: build
+	@echo "Testing Atlantic Kill Switch..."
+	@echo "WARNING: This requires root privileges and will block all traffic"
+	@echo "Press Ctrl+C within 5 seconds to cancel..."
+	@sleep 5
+	sudo ./bin/killswitch-test
+
+# Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	@rm -rf $(BUILD_DIR)
+	rm -rf bin/
+	go clean
 
-install: build-local
-	@echo "Installing AtlanticProxy Client..."
-	sudo cp $(BUILD_DIR)/$(BINARY_NAME) /usr/local/bin/
-	sudo chmod +x /usr/local/bin/$(BINARY_NAME)
+# Install system service (macOS/Linux)
+install: build
+	@echo "Installing Atlantic Proxy service..."
+	sudo mkdir -p /usr/local/bin
+	sudo cp bin/atlantic-test /usr/local/bin/atlantic-proxy
+	@echo "Atlantic Proxy installed to /usr/local/bin/atlantic-proxy"
 
-test:
-	@echo "Running tests..."
-	go test -v ./...
+# Quick validation without full system modification
+validate:
+	@echo "Validating Atlantic Proxy components..."
+	go build -o /tmp/atlantic-validate cmd/atlantic-test/main.go
+	go build -o /tmp/killswitch-validate cmd/killswitch-test/main.go
+	@echo "✅ Build successful"
+	@echo "✅ Dependencies resolved"
+	@echo "✅ Code compiles without errors"
+	rm -f /tmp/atlantic-validate /tmp/killswitch-validate
 
-run: build-local
-	@echo "Running AtlanticProxy Client..."
-	sudo $(BUILD_DIR)/$(BINARY_NAME)
-
-deps:
-	@echo "Downloading dependencies..."
-	go mod download
-	go mod tidy
-
-dev-setup:
+# Development setup
+dev-setup: deps
 	@echo "Setting up development environment..."
-	go mod download
-	@echo "Development setup complete!"
+	mkdir -p bin/
+	mkdir -p logs/
+	@echo "✅ Development environment ready"
 
-install-service: build-local
-	@echo "Installing system service..."
-	@if [ "$(shell uname)" = "Darwin" ]; then \
-		./scripts/install-macos.sh; \
-	else \
-		sudo cp $(BUILD_DIR)/$(BINARY_NAME) /usr/local/bin/; \
-		sudo cp scripts/atlantic-proxy.service /etc/systemd/system/; \
-		sudo systemctl daemon-reload; \
-		sudo systemctl enable atlantic-proxy; \
-		echo "Service installed. Start with: sudo systemctl start atlantic-proxy"; \
-	fi
-
-start-service:
-	@echo "Starting AtlanticProxy service..."
-	@if [ "$(shell uname)" = "Darwin" ]; then \
-		sudo launchctl load /Library/LaunchDaemons/com.atlanticproxy.client.plist; \
-	else \
-		sudo systemctl start atlantic-proxy; \
-	fi
-
-stop-service:
-	@echo "Stopping AtlanticProxy service..."
-	@if [ "$(shell uname)" = "Darwin" ]; then \
-		sudo launchctl unload /Library/LaunchDaemons/com.atlanticproxy.client.plist; \
-	else \
-		sudo systemctl stop atlantic-proxy; \
-	fi
-
-uninstall-service:
-	@echo "Uninstalling system service..."
-	@if [ "$(shell uname)" = "Darwin" ]; then \
-		sudo launchctl unload /Library/LaunchDaemons/com.atlanticproxy.client.plist || true; \
-		sudo rm -f /Library/LaunchDaemons/com.atlanticproxy.client.plist; \
-		sudo rm -f /usr/local/bin/$(BINARY_NAME); \
-	else \
-		sudo systemctl stop atlantic-proxy || true; \
-		sudo systemctl disable atlantic-proxy || true; \
-		sudo rm -f /etc/systemd/system/atlantic-proxy.service; \
-		sudo rm -f /usr/local/bin/$(BINARY_NAME); \
-		sudo systemctl daemon-reload; \
-	fi
-	@echo "Service uninstalled."
-
-logs:
-	@echo "Showing service logs..."
-	@if [ "$(shell uname)" = "Darwin" ]; then \
-		tail -f /var/log/atlantic-proxy.log; \
-	else \
-		sudo journalctl -u atlantic-proxy -f; \
-	fi
+# Show help
+help:
+	@echo "Atlantic Proxy - Build Commands"
+	@echo "================================"
+	@echo "make build     - Build the application"
+	@echo "make deps      - Install dependencies"
+	@echo "make test      - Test traffic interceptor (requires root)"
+	@echo "make test-killswitch - Test kill switch (requires root)"
+	@echo "make validate  - Quick validation without system changes"
+	@echo "make clean     - Clean build artifacts"
+	@echo "make install   - Install as system service"
+	@echo "make dev-setup - Setup development environment"
+	@echo "make help      - Show this help"

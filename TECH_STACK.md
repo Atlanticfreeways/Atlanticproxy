@@ -1,311 +1,113 @@
-# Atlantic Proxy - Technical Stack Architecture
 
-## 🏗️ Full Stack Overview
+The default interactive shell is now zsh.
+To update your account to use zsh, please run `chsh -s /bin/zsh`.
+For more details, please visit https://support.apple.com/kb/HT208050.
+Machines-MBP:Atlanticproxy machine$ # 1. Build images
+docker build -f backend/Dockerfile.prod -t atlantic-proxy-backend:latest .
+docker build -f frontend/Dockerfile.prod -t atlantic-proxy-frontend:latest .^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^H^Hq translate '1. Build images'
+nv.prod.example .env.prod
+# Edit .env.prod with your values
 
-### Frontend Layer
-```
-React.js + TypeScript
-├── Next.js (SSR/SSG)
-├── Tailwind CSS (Styling)
-├── Shadcn/ui (Components)
-├── React Query (State Management)
-├── Chart.js (Analytics)
-└── Framer Motion (Animations)
-```
+# 3. Run services
+docker-compose -f docker-compose.prod.yml up -d
 
-### Backend Layer
-```
-Node.js + Express.js
-├── TypeScript
-├── Prisma ORM
-├── PostgreSQL (Primary DB)
-├── Redis (Caching/Sessions)
-├── JWT Authentication
-└── Rate Limiting
-```
+# 4. Verify
+curl http://localhost:5000/health
+curl http://localhost:3000
 
-### Infrastructure & DevOps (Open Source First)
-```
-Self-Hosted Platform
-├── Docker + Docker Compose
-├── Nginx (Reverse Proxy/Load Balancer)
-├── PostgreSQL (Self-hosted)
-├── Redis (Self-hosted)
-├── MinIO (S3-compatible storage)
-├── Traefik (Auto SSL/Routing)
-└── GitHub Actions (CI/CD)
-```
+# 5. Push to GitHub
+git add .
+git commit -m "Phase 8: Add Docker and CI/CD"
+git push origin main
+Machines-MBP:Atlanticproxy machine$ docker build -f backend/Dockerfile.prod -t atlantic-proxy-backend:latest .
+[+] Building 328.7s (13/17)                         docker:desktop-linux
+ => [internal] load build definition from Dockerfile.prod           0.8s
+ => => transferring dockerfile: 606B                                0.2s
+ => [internal] load .dockerignore                                   0.7s
+ => => transferring context: 2B                                     0.1s
+ => [internal] load metadata for docker.io/library/golang:1.21-al  12.2s
+ => [internal] load metadata for docker.io/library/alpine:latest   12.2s
+ => [auth] library/alpine:pull token for registry-1.docker.io       0.0s
+ => [auth] library/golang:pull token for registry-1.docker.io       0.0s
+ => [builder 1/6] FROM docker.io/library/golang:1.21-alpine@sha2  293.8s
+ => => resolve docker.io/library/golang:1.21-alpine@sha256:2414035  0.1s
+ => => sha256:2414035b086e3c42b99654c8b26e6f5b1b 10.30kB / 10.30kB  0.0s
+ => => sha256:8ee9b9e11ef79e314a7584040451a6df8e72 1.92kB / 1.92kB  0.0s
+ => => sha256:c2321c7cf7210be837249dba0f3699fad6dd 2.10kB / 2.10kB  0.0s
+ => => sha256:41db7493d1c6f3f26428d119962e3862 290.89kB / 290.89kB  2.3s
+ => => sha256:c6a83fedfae6ed8a4f5f7cbb6a7b6f1c1ec3 3.62MB / 3.62MB  2.6s
+ => => sha256:54bf7053e2d96c2c7f4637ad7580bd643 67.01MB / 67.01MB  26.1s
+ => => sha256:4579008f8500d429ec007d092329191009711942 126B / 126B  3.2s
+ => => extracting sha256:c6a83fedfae6ed8a4f5f7cbb6a7b6f1c1ec3d86fe  4.5s
+ => => sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb557 32B / 32B  3.3s
+ => => extracting sha256:41db7493d1c6f3f26428d119962e3862c14a9e20  11.7s
+ => => extracting sha256:54bf7053e2d96c2c7f4637ad7580bd64345b3c9  259.4s
+ => => extracting sha256:4579008f8500d429ec007d092329191009711942d  0.0s
+ => => extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb55  0.0s
+ => [stage-1 1/4] FROM docker.io/library/alpine:latest@sha256:4b7c  0.4s
+ => => resolve docker.io/library/alpine:latest@sha256:4b7ce07002c6  0.1s
+ => => sha256:706db57fb2063f39f69632c5b5c9c439633fda35 581B / 581B  0.0s
+ => => sha256:4b7ce07002c69e8f3d704a9c5d6fd3053be5 9.22kB / 9.22kB  0.0s
+ => => sha256:85f2b723e106c34644cd5851d7e81ee87da9 1.02kB / 1.02kB  0.0s
+ => [internal] load build context                                 314.4s
+ => => transferring context: 629.94MB                             313.0s
+ => [stage-1 2/4] RUN apk --no-cache add ca-certificates           28.8s
+ => [stage-1 3/4] WORKDIR /root/                                    1.8s
+ => [builder 2/6] WORKDIR /app                                      2.1s
+ => ERROR [builder 3/6] COPY go.mod go.sum ./                       0.0s
+------
+ > [builder 3/6] COPY go.mod go.sum ./:
+------
+Dockerfile.prod:7
+--------------------
+   5 |     
+   6 |     # Copy go mod files
+   7 | >>> COPY go.mod go.sum ./
+   8 |     
+   9 |     # Download dependencies
+--------------------
+ERROR: failed to solve: failed to compute cache key: failed to calculate checksum of ref e753a81d-ea48-4f71-bb9c-4e2a49be04d2::p9gkelyh8tlsjiav2loldqlig: "/go.sum": not found
+Machines-MBP:Atlanticproxy machine$ docker build -f frontend/Dockerfile.proq translate '1. Build images'
+ERROR: "docker buildx build" requires exactly 1 argument.
+See 'docker buildx build --help'.
 
-## 🔧 Detailed Technology Breakdown
+Usage:  docker buildx build [OPTIONS] PATH | URL | -
 
-### Frontend Technologies
-
-**Core Framework**
-- **Next.js 14** - React framework with App Router
-- **TypeScript** - Type safety and better DX
-- **React 18** - Latest React features
-
-**Styling & UI**
-- **Tailwind CSS** - Utility-first CSS framework
-- **Shadcn/ui** - Modern component library
-- **Lucide Icons** - Consistent icon system
-- **Framer Motion** - Smooth animations
-
-**State Management**
-- **React Query/TanStack Query** - Server state management
-- **Zustand** - Client state management
-- **React Hook Form** - Form handling
-
-**Data Visualization**
-- **Chart.js** - Analytics dashboards
-- **Recharts** - React chart library
-- **D3.js** - Advanced visualizations
-
-### Backend Technologies
-
-**Runtime & Framework**
-- **Node.js 20+** - JavaScript runtime
-- **Express.js** - Web framework
-- **TypeScript** - Type safety
-
-**Database & ORM**
-- **PostgreSQL 15** - Primary database
-- **Prisma** - Type-safe ORM
-- **Redis** - Caching and sessions
-
-**Authentication & Security**
-- **JWT** - Token-based auth
-- **bcrypt** - Password hashing
-- **Helmet.js** - Security headers
-- **CORS** - Cross-origin requests
-
-**API & Integration**
-- **Axios** - HTTP client for Oxylabs API
-- **Zod** - Schema validation
-- **Express Rate Limit** - API rate limiting
-
-### Payment & Billing (Open Source Options)
-- **Stripe** - Payment processing (when ready)
-- **OpenPayd** - Open source alternative
-- **jsPDF** - PDF invoice generation
-- **Invoice Ninja** - Self-hosted invoicing
-
-### Communication (Self-Hosted)
-- **Nodemailer + SMTP** - Email service
-- **Postal** - Self-hosted email server
-- **Socket.io** - Real-time updates
-- **Mattermost** - Team communication
-
-## 📊 Database Schema Design
-
-### Core Tables
-```sql
--- Users and Authentication
-users, user_sessions, user_roles
-
--- Proxy Management  
-proxy_endpoints, proxy_usage, proxy_pools
-
--- Billing & Payments
-subscriptions, invoices, payments, usage_records
-
--- Referral & Affiliate System
-referral_codes, commissions, payouts
-
--- Support & Analytics
-support_tickets, analytics_events, audit_logs
-```
-
-## 🔌 External Integrations
-
-### Primary Services
-- **Oxylabs API** - Proxy service provider
-- **Stripe API** - Payment processing (later)
-- **SMTP Server** - Self-hosted email
-- **Chatwoot** - Open source customer support
-
-### Analytics & Monitoring (Open Source)
-- **Plausible** - Privacy-focused analytics
-- **Matomo** - Self-hosted analytics
-- **Sentry** - Error tracking (free tier)
-- **Uptime Kuma** - Self-hosted monitoring
-- **Grafana + Prometheus** - System monitoring
-
-## 🚀 Development Workflow
-
-### Local Development
-```bash
-# Frontend
-npm run dev          # Next.js dev server
-npm run build        # Production build
-npm run lint         # ESLint + Prettier
-
-# Backend  
-npm run dev          # Express dev server
-npm run db:migrate   # Prisma migrations
-npm run db:seed      # Database seeding
-```
-
-### Testing Strategy
-- **Jest** - Unit testing
-- **Playwright** - E2E testing
-- **Supertest** - API testing
-- **React Testing Library** - Component testing
-
-### Code Quality
-- **ESLint** - Code linting
-- **Prettier** - Code formatting
-- **Husky** - Git hooks
-- **TypeScript** - Type checking
-
-## 🏗️ Architecture Patterns
-
-### Frontend Architecture
-```
-src/
-├── app/              # Next.js App Router
-├── components/       # Reusable components
-├── lib/             # Utilities and configs
-├── hooks/           # Custom React hooks
-├── types/           # TypeScript definitions
-└── styles/          # Global styles
-```
-
-### Backend Architecture
-```
-src/
-├── routes/          # API endpoints
-├── middleware/      # Express middleware
-├── services/        # Business logic
-├── models/          # Database models
-├── utils/           # Helper functions
-└── types/           # TypeScript definitions
-```
-
-## 🔒 Security Implementation
-
-### Authentication Flow
-1. **JWT Tokens** - Access + Refresh tokens
-2. **Role-based Access** - User, Reseller, Admin
-3. **API Key Management** - Secure key generation
-4. **Session Management** - Redis-based sessions
-
-### Data Protection
-- **Encryption at Rest** - Database encryption
-- **HTTPS Everywhere** - SSL/TLS certificates
-- **Input Validation** - Zod schema validation
-- **SQL Injection Prevention** - Prisma ORM
-
-## 📈 Scalability Considerations
-
-### Performance Optimization
-- **Database Indexing** - Optimized queries
-- **Redis Caching** - Frequently accessed data
-- **CDN Integration** - Static asset delivery
-- **API Rate Limiting** - Prevent abuse
-
-### Horizontal Scaling
-- **Stateless Backend** - Easy horizontal scaling
-- **Database Sharding** - Future consideration
-- **Microservices** - Service separation
-- **Load Balancing** - Traffic distribution
-
-## 🛠️ Development Tools
-
-### IDE & Extensions
-- **VS Code** - Primary IDE
-- **Prettier** - Code formatting
-- **ESLint** - Code linting
-- **Thunder Client** - API testing
-
-### Database Tools
-- **Prisma Studio** - Database GUI
-- **pgAdmin** - PostgreSQL management
-- **Redis CLI** - Redis management
-
-## 📦 Package Management
-
-### Frontend Dependencies
-```json
-{
-  "next": "^14.0.0",
-  "react": "^18.0.0",
-  "typescript": "^5.0.0",
-  "tailwindcss": "^3.0.0",
-  "@tanstack/react-query": "^5.0.0",
-  "framer-motion": "^10.0.0"
-}
-```
-
-### Backend Dependencies
-```json
-{
-  "express": "^4.18.0",
-  "prisma": "^5.0.0",
-  "typescript": "^5.0.0",
-  "jsonwebtoken": "^9.0.0",
-  "bcrypt": "^5.1.0",
-  "stripe": "^14.0.0"
-}
-```
-
-## 🚀 Deployment Strategy (Open Source First)
-
-### Self-Hosted Environment
-- **VPS/Dedicated Server**: Hetzner, DigitalOcean, or Contabo
-- **Container Orchestration**: Docker Compose
-- **Reverse Proxy**: Nginx or Traefik
-- **SSL**: Let's Encrypt (free)
-- **CDN**: CloudFlare (free tier)
-
-### Docker Compose Setup
-```yaml
-version: '3.8'
-services:
-  frontend:
-    build: ./frontend
-    ports: ["3000:3000"]
-  
-  backend:
-    build: ./backend
-    ports: ["5000:5000"]
-    depends_on: [postgres, redis]
-  
-  postgres:
-    image: postgres:15
-    volumes: ["postgres_data:/var/lib/postgresql/data"]
-  
-  redis:
-    image: redis:7-alpine
-    volumes: ["redis_data:/data"]
-  
-  nginx:
-    image: nginx:alpine
-    ports: ["80:80", "443:443"]
-    volumes: ["./nginx.conf:/etc/nginx/nginx.conf"]
-```
-
-## 💰 Cost Estimation (Open Source First)
-
-### Development Phase (Self-Hosted)
-- **VPS (4GB RAM, 2 CPU)**: $10-20/month
-- **Domain + SSL**: $15/year
-- **Backup Storage**: $5/month
-- **External APIs**: $50/month
-- **Total**: ~$70/month
-
-### Production Scale (Self-Hosted)
-- **Dedicated Server**: $50-150/month
-- **CDN (CloudFlare Pro)**: $20/month
-- **Backup & Monitoring**: $20/month
-- **External Services**: $100-300/month
-- **Total**: $190-490/month
-
-### Migration to Cloud (When Scaling)
-- **AWS/GCP**: $300-1000/month
-- **Managed Services**: $200-500/month
-- **Total**: $500-1500/month
-
----
-
-This stack provides a solid foundation for building a scalable proxy marketplace with all the features needed for your referral, affiliate, and white-label programs.
+Start a build
+Machines-MBP:Atlanticproxy machine$ nv.prod.example .env.prod
+bash: nv.prod.example: command not found
+Machines-MBP:Atlanticproxy machine$ # Edit .env.prod with your values
+Machines-MBP:Atlanticproxy machine$ 
+Machines-MBP:Atlanticproxy machine$ # 3. Run services
+Machines-MBP:Atlanticproxy machine$ docker-compose -f docker-compose.prod.yml up -d
+WARN[0000] The "DATABASE_URL" variable is not set. Defaulting to a blank string. 
+WARN[0000] The "JWT_SECRET" variable is not set. Defaulting to a blank string. 
+WARN[0000] The "PAYSTACK_SECRET" variable is not set. Defaulting to a blank string. 
+[+] Building 47.0s (14/17)                          docker:desktop-linux
+ => [backend internal] load .dockerignore                           0.1s
+ => => transferring context: 2B                                     0.0s
+ => [backend internal] load build definition from Dockerfile.prod   0.1s
+ => => transferring dockerfile: 606B                                0.0s
+ => [backend internal] load metadata for docker.io/library/golang:  8.6s
+ => [backend internal] load metadata for docker.io/library/alpine:  8.6s
+ => [backend auth] library/golang:pull token for registry-1.docker  0.0s
+ => [backend auth] library/alpine:pull token for registry-1.docker  0.0s
+ => [backend builder 1/6] FROM docker.io/library/golang:1.21-alpin  0.0s
+ => [backend stage-1 1/4] FROM docker.io/library/alpine:latest@sha  0.0s
+ => CACHED [backend stage-1 2/4] RUN apk --no-cache add ca-certifi  0.0s
+ => CACHED [backend stage-1 3/4] WORKDIR /root/                     0.0s
+ => [backend internal] load build context                          12.7s
+ => => transferring context: 62.09MB                               12.6s
+ => CACHED [backend builder 2/6] WORKDIR /app                       0.0s
+ => [backend builder 3/6] COPY go.mod go.sum ./                     0.6s
+ => ERROR [backend builder 4/6] RUN go mod download                21.8s
+------                                                                   
+ > [backend builder 4/6] RUN go mod download:
+18.89 go: go.mod requires go >= 1.24.0 (running go 1.21.13; GOTOOLCHAIN=local)
+------
+failed to solve: process "/bin/sh -c go mod download" did not complete successfully: exit code: 1
+Machines-MBP:Atlanticproxy machine$ 
+Machines-MBP:Atlanticproxy machine$ # 4. Verify
+Machines-MBP:Atlanticproxy machine$ curl http://localhost:5000/health
+curl: (7) Failed to connect to localhost port 5000 after 5 ms: Couldn't connect to server
+Machines-MBP:Atlanticproxy machine$ curl http://localhost:3000

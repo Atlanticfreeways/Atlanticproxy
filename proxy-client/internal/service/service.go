@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/atlanticproxy/proxy-client/internal/api"
 	"github.com/atlanticproxy/proxy-client/internal/interceptor"
 	"github.com/atlanticproxy/proxy-client/internal/killswitch"
 	"github.com/atlanticproxy/proxy-client/internal/monitor"
@@ -18,6 +19,7 @@ type Service struct {
 	proxy       *proxy.Engine
 	monitor     *monitor.NetworkMonitor
 	killswitch  *killswitch.Guardian
+	apiServer   *api.Server
 	logger      *logrus.Logger
 }
 
@@ -53,9 +55,12 @@ func (s *Service) Run(ctx context.Context) error {
 	// Initialize network monitor
 	s.monitor = monitor.New(s.config.Monitor)
 
+	// Initialize API server
+	s.apiServer = api.NewServer()
+
 	// Start all components
 	var wg sync.WaitGroup
-	errChan := make(chan error, 4)
+	errChan := make(chan error, 5)
 
 	// Start interceptor
 	wg.Add(1)
@@ -80,6 +85,15 @@ func (s *Service) Run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 		if err := s.monitor.Start(ctx); err != nil {
+			errChan <- err
+		}
+	}()
+
+	// Start API server
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := s.apiServer.Start(ctx); err != nil {
 			errChan <- err
 		}
 	}()
