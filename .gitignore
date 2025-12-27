@@ -78,3 +78,17 @@ coverage.html
 # Kubernetes
 *.yaml.bak
 *.yml.bak
+
+# Documentation and roadmaps
+*_STATUS.md
+*_SUMMARY.md
+*_NOTICE.md
+*_ROADMAP.md
+*_TASKS.md
+*_CHECKLIST.md
+*_GUIDE.md
+*_REFERENCE.md
+*_BRIEFING.md
+PHASE*.md
+About the Proj/
+docs/
