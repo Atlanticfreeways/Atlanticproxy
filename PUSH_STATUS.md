@@ -5,26 +5,55 @@
 
 ## ✅ LOCAL COMMIT SUCCESSFUL
 
-**Commit:** `ace83d2`  
+**Commit:** `0a7cfbd` (after history rewrite)  
 **Message:** "docs: phase 1-8 complete, tray ui implemented"  
-**Files Changed:** 34 files  
-**Insertions:** 9,840 lines  
-**Deletions:** 330 lines
+**Files Changed:** 583 files  
+**Insertions:** 21,481 lines  
+**Deletions:** 70,474 lines
+
+---
+
+## ✅ SECRETS REMOVED FROM HISTORY
+
+**Action:** Git history rewritten using `git filter-branch`  
+**Removed:** PHASE3_PAYSTACK_COMPLETE.md, PROJECT_COMPLETE.md from all commits
 
 ---
 
 ## ❌ REMOTE PUSH BLOCKED
 
-**Reason:** GitHub Secret Scanning detected Stripe API key in git history
-
-**Blocked Secret:**
-- Type: Stripe API Key
-- Location: Old deleted files (PHASE3_PAYSTACK_COMPLETE.md, PROJECT_COMPLETE.md)
-- Commit: 41d290d54b1288f6da8cbaa764611425d8474e2c
+**Reason:** GitHub token lacks `workflow` scope to update `.github/workflows/`
 
 **Error:**
 ```
-! [remote rejected] main -> main (push declined due to repository rule violations)
+! [remote rejected] main -> main (refusing to allow a Personal Access Token 
+to create or update workflow `.github/workflows/deploy.yml` without `workflow` scope)
+```
+
+---
+
+## 🔧 TO RESOLVE
+
+### Option 1: Update GitHub Token (Recommended)
+1. Go to GitHub Settings → Developer settings → Personal access tokens
+2. Edit your token
+3. Add `workflow` scope
+4. Save and update local credentials
+5. Retry: `git push origin main --force`
+
+### Option 2: Remove Workflow Files from Commit
+```bash
+# Remove workflow files from this commit
+git rm --cached .github/workflows/*.yml
+git commit --amend --no-edit
+git push origin main --force
+```
+
+### Option 3: Push via GitHub CLI
+```bash
+# If you have gh CLI installed
+gh auth refresh -s workflow
+git push origin main --force
 ```
 
 ---
@@ -144,6 +173,5 @@ Changes:
 
 ---
 
-**Status:** Commit successful locally, push blocked by GitHub secret scanning  
-**Next:** Allow secret via GitHub URL or remove from history
-
+**Status:** Secrets removed from history, commit ready, push blocked by token permissions  
+**Next:** Update GitHub token with workflow scope and retry push
