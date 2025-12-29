@@ -78,7 +78,7 @@ export default function DashboardPage() {
                     icon={<Timer size={24} />}
                     title="Latency"
                     value={`${status?.latency || 0}ms`}
-                    status={status && status.latency < 100 ? 'success' : 'warning'}
+                    status={status && (status.latency || 0) < 100 ? 'success' : 'warning'}
                 />
                 <StatusCard
                     icon={<ArrowsDownUp size={24} />}

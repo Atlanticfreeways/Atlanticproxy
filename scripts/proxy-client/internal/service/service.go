@@ -6,23 +6,30 @@ import (
 
 	"github.com/atlanticproxy/proxy-client/internal/adblock"
 	"github.com/atlanticproxy/proxy-client/internal/api"
+	"github.com/atlanticproxy/proxy-client/internal/billing"
 	"github.com/atlanticproxy/proxy-client/internal/interceptor"
 	"github.com/atlanticproxy/proxy-client/internal/killswitch"
 	"github.com/atlanticproxy/proxy-client/internal/monitor"
 	"github.com/atlanticproxy/proxy-client/internal/proxy"
+	"github.com/atlanticproxy/proxy-client/internal/rotation"
+	"github.com/atlanticproxy/proxy-client/internal/storage"
 	"github.com/atlanticproxy/proxy-client/pkg/config"
 	"github.com/sirupsen/logrus"
 )
 
 type Service struct {
-	config      *config.Config
-	interceptor *interceptor.TunInterceptor
-	proxy       *proxy.Engine
-	adblock     *adblock.Engine
-	monitor     *monitor.NetworkMonitor
-	killswitch  *killswitch.Guardian
-	apiServer   *api.Server
-	logger      *logrus.Logger
+	config           *config.Config
+	interceptor      *interceptor.TunInterceptor
+	proxy            *proxy.Engine
+	adblock          *adblock.Engine
+	rotationManager  *rotation.Manager
+	analyticsManager *rotation.AnalyticsManager
+	billingManager   *billing.Manager
+	monitor          *monitor.NetworkMonitor
+	killswitch       *killswitch.Guardian
+	apiServer        *api.Server
+	storage          *storage.Store
+	logger           *logrus.Logger
 }
 
 
@@ -52,17 +59,30 @@ func (s *Service) Run(ctx context.Context) error {
 		return err
 	}
 
+	// Initialize storage
+	s.storage, err = storage.NewStore()
+	if err != nil {
+		s.logger.Warnf("Failed to initialize persistent storage: %v. Running in-memory mode.", err)
+	}
+
 	// Initialize adblock engine
-	s.adblock = adblock.NewEngine("US") // TODO: Detect region
+	s.adblock = adblock.NewEngine("US", s.storage) // TODO: Detect region
+
+	// Initialize rotation components
+	s.rotationManager = rotation.NewManager()
+	s.analyticsManager = rotation.NewAnalyticsManager()
+
+	// Initialize billing components
+	s.billingManager = billing.NewManager(s.storage)
 
 	// Initialize proxy engine
-	s.proxy = proxy.NewEngine(s.config.Proxy, s.adblock)
+	s.proxy = proxy.NewEngine(s.config.Proxy, s.adblock, s.rotationManager, s.analyticsManager, s.billingManager)
 
 	// Initialize network monitor
 	s.monitor = monitor.New(s.config.Monitor)
 
 	// Initialize API server
-	s.apiServer = api.NewServer(s.adblock, s.killswitch)
+	s.apiServer = api.NewServer(s.adblock, s.killswitch, s.rotationManager, s.analyticsManager, s.billingManager)
 
 
 	// Start all components
@@ -115,6 +135,22 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 	}()
 
+	// Periodic usage sync
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if s.billingManager != nil {
+					s.billingManager.SyncUsage()
+				}
+			}
+		}
+	}()
+
 	s.logger.Info("AtlanticProxy service started successfully")
 
 	// Wait for context cancellation or error
@@ -154,6 +190,15 @@ func (s *Service) shutdown() {
 
 	if s.monitor != nil {
 		s.monitor.Stop()
+	}
+
+	if s.storage != nil {
+		// Sync usage to storage on shutdown
+		if s.billingManager != nil {
+			stats := s.billingManager.Usage.GetStats()
+			s.storage.UpdateUsage(stats.DataTransferred, stats.RequestsMade, stats.AdsBlocked, stats.ThreatsBlocked)
+		}
+		s.storage.Close()
 	}
 }
 

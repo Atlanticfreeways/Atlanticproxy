@@ -5,18 +5,23 @@ AtlanticProxy is a high-performance, secure, and user-friendly proxy client that
 
 ---
 
-## 🚦 PROJECT STATUS: 🟢 Core Implementation Complete
-AtlanticProxy has successfully transitioned through Phases 1-8. It is now a fully functional "VP-Grade" solution with robust performance and security features.
-
-**Next Milestone:** Phase 9 - Production Polish & Distribution.
+## 📊 PROJECT STATUS: 🟢 V1.0 IMPLEMENTATION IN PROGRESS
+**Current Focus:** Critical Integration (Database, Stripe, Testing)  
+**Progress:** 85% Complete (35 critical tasks remaining)  
+**Timeline:** 2-3 weeks to V1.0  
+**Version:** 1.0.0-rc
 
 ---
 
 ## ⚡ QUICK ACCESS
-If you are continuing development or reviewing progress, start here:
-- **[Phase 9 Roadmap & Quick Access](./PHASE9_QUICKACCESS.md)** 🚀
-- **[Unified Completion Report (Phases 1-8)](About%20the%20Proj/UNIFIED_COMPLETION_REPORT.md)**
-- **[Implementation Checklist](About%20the%20Proj/IMPLEMENTATION_CHECKLIST.md)**
+
+### 🚀 Implementation
+**[→ V1.0 Implementation Guide](./V1_IMPLEMENTATION_GUIDE.md)** - Complete task checklist (35 critical tasks remaining)  
+**[→ Quick Reference](./PHASE9_QUICKACCESS.md)** - Fast navigation and status
+
+### 📖 Documentation
+**[→ User Guide](./docs/USER_GUIDE.md)** - Installation and usage  
+**[→ Technical Docs](./About%20the%20Proj/)** - Architecture and specifications
 
 ---
 
@@ -24,61 +29,45 @@ If you are continuing development or reviewing progress, start here:
 - **System-Wide Interception:** Leveraging TUN/TAP interfaces to capture and route 100% of system traffic.
 - **High-Performance Proxying:** Transparent HTTP/HTTPS proxy with connection pooling and SSL/TLS MITM.
 - **Oxylabs Integration:** Direct access to premium residential proxy exit nodes with automated failover.
+- **IP Rotation Service:** Flexible rotation strategies (per-request, sticky sessions) with geographic targeting.
 - **Advanced Security:** Native Kill Switch, DNS Leak prevention, and WebRTC blocking.
-- **Smart Ad-Blocking:** DNS and HTTP-level filtering with regional compliance (GDPR aware).
+- **Smart Ad-Blocking:** Custom rules, Whitelisting, and auto-updating blocklists (EasyList).
+- **Billing & Quota:** Real-time data usage tracking and plan enforcement (Starter, Personal, Team, Enterprise).
 - **Dual Interface:** 
     - **Go Tray App:** Light-weight status and quick toggle menu.
-    - **Web Dashboard:** Comprehensive 7-page analytics and management suite.
+    - **Web Dashboard:** Comprehensive analytics and management suite with real-time updates.
 
 ---
 
-## 📊 PERFORMANCE SPECS
-- **p50 Latency:** 15ms - 40ms
-- **Throughput:** >100 Mbps (Full 1080p/4K Streaming ready)
-- **Memory Footprint:** ~80MB (Combined)
-- **Failover Logic:** <500ms connection restoration
+## 📂 INSTALLATION
+
+Go to the **[User Guide](./docs/USER_GUIDE.md)** for detailed installation instructions.
+
+**Artifacts Locations:**
+- **macOS:** `build/macos/AtlanticProxy-1.0.0.dmg`
+- **Windows:** `build/windows/AtlanticProxy-1.0.0-win64.zip`
+- **Linux:** `build/linux/AtlanticProxy-1.0.0-linux-amd64.tar.gz`
 
 ---
 
-## 📂 PROJECT STRUCTURE
+## 📁 PROJECT STRUCTURE
 ```
 Atlanticproxy/
-├── cmd/
-│   ├── tray/               # Go System Tray UI
-│   └── service/            # Go Background Core Service
-├── scripts/proxy-client/    # Main Core Logic (Go)
-│   ├── internal/            # AdBlock, Interceptor, Proxy, Failover logic
-│   └── pkg/                 # Configuration and Oxylabs Client
-├── atlantic-dashboard/     # Next.js 15 Web Dashboard
-└── About the Proj/         # Project Roadmap, Checklists, and Docs
-```
-
----
-
-## 🚀 GETTING STARTED (DEVELOPER)
-
-### 1. Build the Go Service
-```bash
-cd scripts/proxy-client
-go build -o bin/proxy-service ./cmd/service
-```
-
-### 2. Build/Run the Tray App
-```bash
-make build-tray
-# Run the binary generated in bin/
-```
-
-### 3. Start the Web Dashboard
-```bash
-npm run run-web-dashboard
-# Opens at http://localhost:3000
+├── cmd/                # Go Binaries (Service, Tray)
+├── scripts/            # Build & Packaging Scripts
+├── scripts/proxy-client # Main Go Core Logic
+├── atlantic-dashboard/ # Next.js 16 Web Dashboard
+├── build/              # Generated Artifacts
+├── docs/               # Documentation
+└── About the Proj/     # Technical Specs & Architecture
 ```
 
 ---
 
 ## 📜 LICENSE
-Internal/Private Development - Atlantic Proxy Limited.
+Copyright © 2025 Atlantic Proxy Limited. All rights reserved.
 
 ---
-**Last Updated:** December 27, 2025
+**Last Updated:** December 28, 2025  
+**Version:** 1.0.0-rc  
+**Status:** 85% Complete - 2-3 weeks to launch 🚀

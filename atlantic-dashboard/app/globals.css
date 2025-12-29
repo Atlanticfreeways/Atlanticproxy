@@ -123,3 +123,13 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+    .glass {
+        @apply bg-black/40 backdrop-blur-xl border border-white/10;
+    }
+    
+    .glass-card {
+        @apply bg-neutral-900/60 backdrop-blur-lg border-neutral-800/80;
+    }
+}

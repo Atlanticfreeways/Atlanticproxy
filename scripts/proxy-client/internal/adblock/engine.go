@@ -19,8 +19,8 @@ type Source struct {
 	Category string
 }
 
-func NewEngine(region string) *Engine {
-	bm := NewBlocklistManager()
+func NewEngine(region string, store Store) *Engine {
+	bm := NewBlocklistManager(store)
 	cm := NewComplianceManager(region)
 	df := NewDNSFilter(bm, cm)
 	hf := NewRequestFilter(bm, cm)
@@ -70,6 +70,7 @@ func (e *Engine) UpdateBlocklists() {
 			fmt.Printf("Atlantic: Failed to update %s: %v\n", source.URL, err)
 		}
 	}
+	e.Blocklist.SetLastUpdated(time.Now())
 	fmt.Printf("Atlantic: Ad-block lists updated. Total rules: %d\n", e.Blocklist.Count())
 }
 

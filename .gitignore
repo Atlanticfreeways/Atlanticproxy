@@ -79,16 +79,41 @@ coverage.html
 *.yaml.bak
 *.yml.bak
 
-# Documentation and roadmaps
+# Internal Documentation and Roadmaps (DO NOT COMMIT)
+# Implementation guides and task tracking
 *_STATUS.md
 *_SUMMARY.md
 *_NOTICE.md
 *_ROADMAP.md
 *_TASKS.md
 *_CHECKLIST.md
-*_GUIDE.md
-*_REFERENCE.md
+*_IMPLEMENTATION_GUIDE.md
+V1_IMPLEMENTATION_GUIDE.md
 *_BRIEFING.md
+*_QUICKACCESS.md
 PHASE*.md
+CLEANUP_SUMMARY.md
+
+# Internal project documentation folder
 About the Proj/
-docs/
+
+# Internal documentation (keep only public-facing docs)
+docs/DEVELOPER_GUIDE.md
+docs/FUTURE_PHASE_9_ENCRYPTION.md
+docs/INTEGRATION_EXAMPLES.md
+docs/LOAD_TESTING_GUIDE.md
+docs/PARTNERSHIP_EVALUATION.md
+docs/PRICING_CONSOLIDATION_PROPOSAL.md
+docs/PRICING_QUICK_REFERENCE.md
+docs/PRICING_STRUCTURE.md
+docs/PRICING_STRUCTURE_V3.md
+docs/PRICING_UNIFIED_SUMMARY.md
+docs/PRODUCTION_DEPLOYMENT_GUIDE.md
+docs/ROTATION_GUIDE.md
+docs/SECURITY_HARDENING_CHECKLIST.md
+docs/SWAGGER_SETUP.md
+
+# Keep these public docs (NOT ignored):
+# - README.md
+# - docs/API_REFERENCE.md
+# - docs/USER_GUIDE.md

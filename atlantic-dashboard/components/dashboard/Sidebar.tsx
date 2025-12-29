@@ -2,15 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { House, ChartLine, Globe, ShieldCheck, Prohibit, Gear, FileText } from '@phosphor-icons/react';
+import { House, ChartLine, Globe, ShieldCheck, Prohibit, Gear, FileText, ArrowsClockwise, CreditCard, ChartBar } from '@phosphor-icons/react';
 
 const navItems = [
     { icon: House, label: 'Overview', href: '/dashboard' },
     { icon: ChartLine, label: 'Statistics', href: '/dashboard/statistics' },
     { icon: Globe, label: 'Servers', href: '/dashboard/servers' },
+    { icon: ArrowsClockwise, label: 'IP Rotation', href: '/dashboard/rotation' },
     { icon: ShieldCheck, label: 'Security', href: '/dashboard/security' },
     { icon: Prohibit, label: 'Ad-Blocking', href: '/dashboard/adblock' },
     { icon: Gear, label: 'Settings', href: '/dashboard/settings' },
+    { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
+    { icon: ChartBar, label: 'Usage', href: '/dashboard/usage' },
     { icon: FileText, label: 'Activity', href: '/dashboard/activity' },
 ];
 

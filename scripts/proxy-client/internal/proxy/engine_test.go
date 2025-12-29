@@ -12,7 +12,7 @@ func TestEngine_StartStop(t *testing.T) {
 		OxylabsPassword: "pass",
 	}
 
-	engine := NewEngine(config, nil)
+	engine := NewEngine(config, nil, nil, nil)
 
 	// Mock oxylabs somehow or ensure it doesn't block Start
 	// Start runs in background
@@ -44,7 +44,7 @@ func TestEngine_HealthCheck(t *testing.T) {
 	config := &Config{
 		ListenAddr: "127.0.0.1:0",
 	}
-	engine := NewEngine(config, nil)
+	engine := NewEngine(config, nil, nil, nil)
 
 	// Just verify method exists and runs without panic
 	// We can't easily assert success without mocking the external URL response

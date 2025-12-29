@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/atlanticproxy/proxy-client/internal/adblock"
+	"github.com/atlanticproxy/proxy-client/internal/billing"
 	"github.com/atlanticproxy/proxy-client/internal/killswitch"
+	"github.com/atlanticproxy/proxy-client/internal/rotation"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
@@ -20,13 +22,16 @@ var upgrader = websocket.Upgrader{
 }
 
 type Server struct {
-	router     *gin.Engine
-	logger     *logrus.Logger
-	status     *ProxyStatus
-	adblock    *adblock.Engine
-	killswitch *killswitch.Guardian
-	clients    map[*websocket.Conn]bool
-	mu         sync.RWMutex
+	router           *gin.Engine
+	logger           *logrus.Logger
+	status           *ProxyStatus
+	adblock          *adblock.Engine
+	killswitch       *killswitch.Guardian
+	rotationManager  *rotation.Manager
+	analyticsManager *rotation.AnalyticsManager
+	billingManager   *billing.Manager
+	clients          map[*websocket.Conn]bool
+	mu               sync.RWMutex
 }
 
 
@@ -45,18 +50,21 @@ type ConnectRequest struct {
 	Endpoint string `json:"endpoint"`
 }
 
-func NewServer(ab *adblock.Engine, ks *killswitch.Guardian) *Server {
+func NewServer(ab *adblock.Engine, ks *killswitch.Guardian, rm *rotation.Manager, am *rotation.AnalyticsManager, bm *billing.Manager) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
 
 	s := &Server{
-		router:     router,
-		logger:     logrus.New(),
-		status:     &ProxyStatus{Connected: false},
-		adblock:    ab,
-		killswitch: ks,
-		clients:    make(map[*websocket.Conn]bool),
+		router:           router,
+		logger:           logrus.New(),
+		status:           &ProxyStatus{Connected: false},
+		adblock:          ab,
+		killswitch:       ks,
+		rotationManager:  rm,
+		analyticsManager: am,
+		billingManager:   bm,
+		clients:          make(map[*websocket.Conn]bool),
 	}
 
 	s.setupRoutes()
@@ -76,6 +84,28 @@ func (s *Server) setupRoutes() {
 	s.router.GET("/adblock/whitelist", s.handleGetWhitelist)
 	s.router.POST("/adblock/whitelist", s.handleAddWhitelist)
 	s.router.DELETE("/adblock/whitelist", s.handleRemoveWhitelist)
+
+	// Ad-block Advanced API
+	s.router.POST("/adblock/refresh", s.handleRefreshBlocklists)
+	s.router.GET("/adblock/stats", s.handleGetAdblockStats)
+	s.router.GET("/adblock/custom", s.handleGetCustomRules)
+	s.router.POST("/adblock/custom", s.handleAddCustomRules)
+
+	// Rotation API
+	s.router.GET("/api/rotation/config", s.handleGetRotationConfig)
+
+	s.router.POST("/api/rotation/config", s.handleSetRotationConfig)
+	s.router.POST("/api/rotation/session/new", s.handleNewSession)
+	s.router.GET("/api/rotation/session/current", s.handleGetCurrentSession)
+	s.router.GET("/api/rotation/stats", s.handleGetRotationStats)
+	s.router.POST("/api/rotation/geo", s.handleSetGeo)
+
+	// Billing API
+	s.router.GET("/api/billing/plans", s.handleGetPlans)
+	s.router.GET("/api/billing/subscription", s.handleGetSubscription)
+	s.router.POST("/api/billing/subscribe", s.handleSubscribe)
+	s.router.POST("/api/billing/cancel", s.handleCancelSubscription)
+	s.router.GET("/api/billing/usage", s.handleGetUsage)
 }
 
 
@@ -236,4 +266,49 @@ func (s *Server) Start(ctx context.Context) error {
 
 	s.logger.Info("Starting HTTP API server on :8082")
 	return srv.ListenAndServe()
+}
+
+func (s *Server) handleRefreshBlocklists(c *gin.Context) {
+	if s.adblock == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Ad-block engine not available"})
+		return
+	}
+
+	go s.adblock.UpdateBlocklists()
+	c.JSON(http.StatusOK, gin.H{"message": "Ad-block lists update started"})
+}
+
+func (s *Server) handleGetAdblockStats(c *gin.Context) {
+	if s.adblock == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Ad-block engine not available"})
+		return
+	}
+
+	c.JSON(http.StatusOK, s.adblock.Blocklist.GetStats())
+}
+
+func (s *Server) handleGetCustomRules(c *gin.Context) {
+	if s.adblock == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Ad-block engine not available"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"rules": s.adblock.Blocklist.GetCustomRules()})
+}
+
+func (s *Server) handleAddCustomRules(c *gin.Context) {
+	if s.adblock == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Ad-block engine not available"})
+		return
+	}
+
+	var req struct {
+		Rules []string `json:"rules" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	s.adblock.Blocklist.SetCustomRules(req.Rules)
+	c.JSON(http.StatusOK, gin.H{"message": "Custom rules updated"})
 }

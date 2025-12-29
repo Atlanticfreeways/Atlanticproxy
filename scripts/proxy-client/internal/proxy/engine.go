@@ -10,6 +10,8 @@ import (
 
 	"github.com/atlanticproxy/proxy-client/pkg/oxylabs"
 	"github.com/atlanticproxy/proxy-client/internal/adblock"
+	"github.com/atlanticproxy/proxy-client/internal/billing"
+	"github.com/atlanticproxy/proxy-client/internal/rotation"
 	"github.com/elazarl/goproxy"
 )
 
@@ -21,18 +23,21 @@ type Config struct {
 }
 
 type Engine struct {
-	config      *Config
-	oxylabs     *oxylabs.Client
-	adblock     *adblock.Engine
-	proxy       *goproxy.ProxyHttpServer
-	server      *http.Server
-	healthCheck *time.Ticker
-	transport   *http.Transport
-	mu          sync.RWMutex
-	running     bool
+	config           *Config
+	oxylabs          *oxylabs.Client
+	adblock          *adblock.Engine
+	rotationManager  *rotation.Manager
+	analyticsManager *rotation.AnalyticsManager
+	billingManager   *billing.Manager
+	proxy            *goproxy.ProxyHttpServer
+	server           *http.Server
+	healthCheck      *time.Ticker
+	transport        *http.Transport
+	mu               sync.RWMutex
+	running          bool
 }
 
-func NewEngine(config *Config, adblocker *adblock.Engine) *Engine {
+func NewEngine(config *Config, adblocker *adblock.Engine, rm *rotation.Manager, am *rotation.AnalyticsManager, bm *billing.Manager) *Engine {
 	if config == nil {
 		config = &Config{
 			ListenAddr:     "127.0.0.1:8080",
@@ -54,23 +59,41 @@ func NewEngine(config *Config, adblocker *adblock.Engine) *Engine {
 	}
 
 	engine := &Engine{
-		config:    config,
-		oxylabs:   oxylabsClient,
-		adblock:   adblocker,
-		proxy:     proxy,
-		transport: transport,
+		config:           config,
+		oxylabs:          oxylabsClient,
+		adblock:          adblocker,
+		rotationManager:  rm,
+		analyticsManager: am,
+		billingManager:   bm,
+		proxy:            proxy,
+		transport:        transport,
 	}
 
 
-	// Set proxy function to use cached oxylabs proxies
+	// Set proxy function to use cached oxylabs proxies with rotation logic
 	transport.Proxy = func(req *http.Request) (*url.URL, error) {
-		return engine.oxylabs.GetProxy(req.Context())
+		proxyConfig := oxylabs.ProxyConfig{}
+		
+		if engine.rotationManager != nil {
+			// Get current config to check mode and geo
+			rotConfig := engine.rotationManager.GetConfig()
+			proxyConfig.Country = rotConfig.Country
+			proxyConfig.City = rotConfig.City
+			proxyConfig.State = rotConfig.State
+			
+			// Handle sessions
+			session, err := engine.rotationManager.GetCurrentSession()
+			if err == nil && session != nil {
+				proxyConfig.SessionID = session.ID
+				proxyConfig.SessionTime = int(session.TimeRemaining().Minutes())
+			}
+		}
+
+		return engine.oxylabs.GetProxyWithConfig(req.Context(), proxyConfig)
 	}
 
 	return engine
 }
-
-
 
 func (e *Engine) Start(ctx context.Context) error {
 	e.mu.Lock()
@@ -118,7 +141,34 @@ func (e *Engine) setupProxyHandlers() {
 
 		// Use shared transport for connection pooling
 		ctx.RoundTripper = goproxy.RoundTripperFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Response, error) {
-			return e.transport.RoundTrip(req)
+			// Billing: Check Quota
+			if e.billingManager != nil {
+				if err := e.billingManager.CanAcceptConnection(); err != nil {
+					return nil, err // This might need a better error response for goproxy
+				}
+				e.billingManager.Usage.AddRequest()
+			}
+
+			resp, err := e.transport.RoundTrip(req)
+			
+			// Analytics
+			if e.analyticsManager != nil {
+				if err != nil {
+					e.analyticsManager.TrackFailure()
+				} else {
+					e.analyticsManager.TrackSuccess()
+				}
+			}
+
+			// Billing: Track Bytes
+			if e.billingManager != nil && resp != nil {
+				// Simple estimation for now: ContentLength if available
+				if resp.ContentLength > 0 {
+					e.billingManager.Usage.AddData(resp.ContentLength)
+				}
+			}
+			
+			return resp, err
 		})
 
 		return req, nil

@@ -23,7 +23,7 @@ func main() {
 		cancel()
 	}()
 
-	server := api.NewServer()
+	server := api.NewServer(nil, nil, nil, nil, nil)
 
 	log.Println("Starting AtlanticProxy HTTP API Server...")
 	if err := server.Start(ctx); err != nil {
