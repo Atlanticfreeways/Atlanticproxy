@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import { StatusCard } from '@/components/dashboard/StatusCard';
 import { apiClient, ProxyStatus } from '@/lib/api';
+import { WorldMap } from '@/components/dashboard/WorldMap';
 import { ShieldCheck, Globe, Timer, ArrowsDownUp } from '@phosphor-icons/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { motion } from 'framer-motion';
 
 export default function DashboardPage() {
     const [status, setStatus] = useState<ProxyStatus | null>(null);
@@ -46,18 +48,44 @@ export default function DashboardPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen">
-                <div className="text-white text-xl">Loading...</div>
+            <div className="flex items-center justify-center h-[80vh]">
+                <div className="relative">
+                    <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                    <div className="mt-4 text-neutral-500 text-sm font-medium">Syncing nodes...</div>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-8">
-            <div>
-                <h1 className="text-3xl font-bold text-white mb-2">Dashboard Overview</h1>
-                <p className="text-neutral-400">Monitor your proxy connection and performance</p>
-            </div>
+        <div className="space-y-8 pb-12">
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col md:flex-row md:items-end justify-between gap-4"
+            >
+                <div>
+                    <h1 className="text-4xl font-extrabold text-white tracking-tight mb-2">Atlantic Dashboard</h1>
+                    <p className="text-neutral-400 font-medium">Oceanic scale residential proxy network</p>
+                </div>
+                <div className="flex gap-2 text-xs font-mono bg-neutral-900 border border-neutral-800 p-2 rounded-lg">
+                    <span className="text-neutral-500">BUILD:</span>
+                    <span className="text-blue-500">PROD-1.0.0-RC</span>
+                </div>
+            </motion.div>
+
+            {/* Geographic Visualization */}
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1 }}
+            >
+                <WorldMap
+                    lat={status?.lat}
+                    lon={status?.lon}
+                    connected={status?.connected || false}
+                />
+            </motion.div>
 
             {/* Status Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -85,6 +113,20 @@ export default function DashboardPage() {
                     title="Data Transferred"
                     value="2.4 GB"
                     subtitle="This session"
+                />
+                <StatusCard
+                    icon={<Globe size={24} />}
+                    title="SOCKS5 Proxy"
+                    value="127.0.0.1:1080"
+                    status="success"
+                    subtitle="Active & Encrypted"
+                />
+                <StatusCard
+                    icon={<ShieldCheck size={24} />}
+                    title="Shadowsocks"
+                    value="127.0.0.1:8388"
+                    status="success"
+                    subtitle="Premium AEAD Active"
                 />
             </div>
 

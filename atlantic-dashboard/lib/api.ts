@@ -2,6 +2,8 @@ export interface ProxyStatus {
     connected: boolean;
     location?: string;
     ip_address?: string;
+    lat?: number;
+    lon?: number;
     latency?: number;
     killSwitch?: boolean;
     last_check?: string;
@@ -247,6 +249,20 @@ class ApiClient {
         return response.json();
     }
 
+    async createCheckout(req: CheckoutRequest): Promise<CheckoutResponse> {
+        const response = await fetch(`${this.baseUrl}/api/billing/checkout`, {
+            method: 'POST',
+            body: JSON.stringify(req),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        if (!response.ok) {
+            throw new Error('Failed to create checkout');
+        }
+        return response.json();
+    }
+
     // Ad-Blocking Advanced API
 
     async refreshAdblock(): Promise<void> {
@@ -305,6 +321,21 @@ export interface UsageStats {
     ads_blocked: number;
     threats_blocked: number;
     active_connections: number;
+}
+
+export interface CheckoutRequest {
+    plan_id: string;
+    email: string;
+    method: 'paystack' | 'crypto';
+    currency?: string;
+}
+
+export interface CheckoutResponse {
+    url?: string;
+    payment_id?: string;
+    address?: string;
+    amount?: string;
+    currency?: string;
 }
 
 export interface AdblockStats {

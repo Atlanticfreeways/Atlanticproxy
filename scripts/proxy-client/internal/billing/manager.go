@@ -26,10 +26,12 @@ type PersistedSubscription struct {
 
 // Manager handles subscription state and logic
 type Manager struct {
-	mu           sync.RWMutex
-	subscription *Subscription
-	Usage        *UsageTracker
-	store        Store
+	mu               sync.RWMutex
+	subscription     *Subscription
+	Usage            *UsageTracker
+	store            Store
+	paystackProvider *PaystackProvider
+	cryptoProvider   *CryptoProvider
 }
 
 func NewManager(store Store) *Manager {
@@ -75,6 +77,25 @@ func NewManager(store Store) *Manager {
 	return m
 }
 
+func (m *Manager) SetPaystack(p *PaystackProvider) { m.paystackProvider = p }
+func (m *Manager) SetCrypto(p *CryptoProvider)     { m.cryptoProvider = p }
+
+func (m *Manager) ProcessCheckout(req CheckoutRequest) (*CheckoutResponse, error) {
+	switch req.Method {
+	case MethodPaystack:
+		if m.paystackProvider == nil {
+			return nil, errors.New("paystack not configured")
+		}
+		return m.paystackProvider.CreateCheckout(req)
+	case MethodCrypto:
+		if m.cryptoProvider == nil {
+			return nil, errors.New("crypto not configured")
+		}
+		return m.cryptoProvider.CreateCheckout(req)
+	}
+	return nil, errors.New("unsupported payment method")
+}
+
 // GetSubscription returns the current active subscription
 func (m *Manager) GetSubscription() *Subscription {
 	m.mu.RLock()
@@ -92,8 +113,6 @@ func (m *Manager) Subscribe(planID PlanType) (*Subscription, error) {
 		return nil, err
 	}
 
-	// Logic to call Payment Provider would go here
-	
 	m.subscription = &Subscription{
 		ID:        uuid.New().String(),
 		PlanID:    planID,
@@ -139,6 +158,9 @@ func (m *Manager) CancelSubscription() error {
 			m.subscription.AutoRenew,
 		)
 	}
+	return nil
+}
+
 // SyncUsage persists current usage to storage
 func (m *Manager) SyncUsage() error {
 	if m.store == nil {
@@ -154,9 +176,11 @@ func (m *Manager) CheckQuota() error {
 	sub := m.subscription
 	m.mu.RUnlock()
 
-	if sub == nil || (sub.Status != "active" && sub.Status != "canceled") {
-		// If canceled, they might still be in the valid period (EndDate), but let's assume "canceled" status means "do not renew" but still valid until EndDate.
-		// However, simple logic for now: check if expired.
+	if sub == nil {
+		return errors.New("no active subscription")
+	}
+
+	if sub.Status != "active" && sub.Status != "canceled" {
 		if time.Now().After(sub.EndDate) {
 			return errors.New("subscription expired")
 		}
@@ -198,9 +222,7 @@ func (m *Manager) CanAcceptConnection() error {
 	m.mu.RUnlock()
 
 	plan, _ := GetPlan(sub.PlanID)
-	
-	// Check Concurrent Connections (if we were tracking them accurately)
-	// For now, we'll trust the UsageTracker's ActiveConnections count
+
 	stats := m.Usage.GetStats()
 	if plan.ConcurrentConns != -1 && stats.ActiveConnections >= plan.ConcurrentConns {
 		return errors.New("concurrent connection limit exceeded")

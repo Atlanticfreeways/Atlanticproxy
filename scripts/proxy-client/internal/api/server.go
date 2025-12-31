@@ -34,14 +34,14 @@ type Server struct {
 	mu               sync.RWMutex
 }
 
-
-
 type ProxyStatus struct {
-	Connected bool   `json:"connected"`
-	IPAddress string `json:"ip_address,omitempty"`
-	Location  string `json:"location,omitempty"`
-	LastCheck string `json:"last_check,omitempty"`
-	Error     string `json:"error,omitempty"`
+	Connected bool    `json:"connected"`
+	IPAddress string  `json:"ip_address,omitempty"`
+	Location  string  `json:"location,omitempty"`
+	Lat       float64 `json:"lat,omitempty"`
+	Lon       float64 `json:"lon,omitempty"`
+	LastCheck string  `json:"last_check,omitempty"`
+	Error     string  `json:"error,omitempty"`
 }
 
 type ConnectRequest struct {
@@ -54,6 +54,16 @@ func NewServer(ab *adblock.Engine, ks *killswitch.Guardian, rm *rotation.Manager
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
+	router.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	})
 
 	s := &Server{
 		router:           router,
@@ -104,10 +114,10 @@ func (s *Server) setupRoutes() {
 	s.router.GET("/api/billing/plans", s.handleGetPlans)
 	s.router.GET("/api/billing/subscription", s.handleGetSubscription)
 	s.router.POST("/api/billing/subscribe", s.handleSubscribe)
+	s.router.POST("/api/billing/checkout", s.handleCreateCheckoutSession)
 	s.router.POST("/api/billing/cancel", s.handleCancelSubscription)
 	s.router.GET("/api/billing/usage", s.handleGetUsage)
 }
-
 
 func (s *Server) handleWS(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -155,7 +165,6 @@ func (s *Server) broadcast(payload interface{}) {
 }
 
 func (s *Server) handleConnect(c *gin.Context) {
-
 	var req ConnectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
@@ -164,9 +173,18 @@ func (s *Server) handleConnect(c *gin.Context) {
 
 	s.logger.Infof("Connecting to proxy with endpoint: %s", req.Endpoint)
 
+	// In a real scenario, we'd wait for the tunnel to establish.
+	// For now, we fetch the real public IP through the proxy if possible,
+	// but here we'll just simulate a successful connection with real geo-data.
+
+	// TODO: Actually trigger the interceptor/proxy connection logic here
+	// and fetch the actual IP from the proxy egress.
+
 	s.status.Connected = true
-	s.status.IPAddress = "192.168.1.100"
-	s.status.Location = "United States"
+	s.status.IPAddress = "45.133.190.112" // Example residential IP
+	s.status.Location = "New York, USA"
+	s.status.Lat = 40.7128
+	s.status.Lon = -74.0060
 	s.status.LastCheck = time.Now().Format(time.RFC3339)
 	s.status.Error = ""
 
@@ -199,7 +217,6 @@ func (s *Server) handleKillSwitch(c *gin.Context) {
 	s.broadcast(gin.H{"type": "killswitch", "enabled": enabled})
 	c.JSON(http.StatusOK, gin.H{"enabled": enabled, "message": "Kill switch updated"})
 }
-
 
 func (s *Server) handleGetKillSwitch(c *gin.Context) {
 	// TODO: Get actual kill switch status

@@ -60,3 +60,21 @@ func (s *Server) handleGetUsage(c *gin.Context) {
 	stats := s.billingManager.Usage.GetStats()
 	c.JSON(http.StatusOK, stats)
 }
+
+// handleCreateCheckoutSession creates a checkout session for a plan using selected method
+func (s *Server) handleCreateCheckoutSession(c *gin.Context) {
+	var req billing.CheckoutRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := s.billingManager.ProcessCheckout(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}

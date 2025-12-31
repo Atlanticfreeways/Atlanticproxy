@@ -85,14 +85,15 @@ coverage.html
 *_SUMMARY.md
 *_NOTICE.md
 *_ROADMAP.md
-*_TASKS.md
 *_CHECKLIST.md
 *_IMPLEMENTATION_GUIDE.md
-V1_IMPLEMENTATION_GUIDE.md
 *_BRIEFING.md
-*_QUICKACCESS.md
-PHASE*.md
 CLEANUP_SUMMARY.md
+
+# Allow these critical files
+!CRITICAL_TASKS.md
+!V1_IMPLEMENTATION_GUIDE.md
+!PHASE9_QUICKACCESS.md
 
 # Internal project documentation folder
 About the Proj/

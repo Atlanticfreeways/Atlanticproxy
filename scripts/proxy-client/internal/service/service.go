@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/atlanticproxy/proxy-client/internal/adblock"
 	"github.com/atlanticproxy/proxy-client/internal/api"
@@ -13,6 +14,7 @@ import (
 	"github.com/atlanticproxy/proxy-client/internal/proxy"
 	"github.com/atlanticproxy/proxy-client/internal/rotation"
 	"github.com/atlanticproxy/proxy-client/internal/storage"
+	"github.com/atlanticproxy/proxy-client/pkg/cert"
 	"github.com/atlanticproxy/proxy-client/pkg/config"
 	"github.com/sirupsen/logrus"
 )
@@ -31,7 +33,6 @@ type Service struct {
 	storage          *storage.Store
 	logger           *logrus.Logger
 }
-
 
 func New() *Service {
 	logger := logrus.New()
@@ -56,13 +57,18 @@ func (s *Service) Run(ctx context.Context) error {
 	var err error
 	s.interceptor, err = interceptor.NewTunInterceptor(s.config.Interceptor)
 	if err != nil {
-		return err
+		s.logger.Warnf("Failed to initialize TUN interceptor: %v. System-wide interception will be disabled.", err)
 	}
 
 	// Initialize storage
 	s.storage, err = storage.NewStore()
 	if err != nil {
 		s.logger.Warnf("Failed to initialize persistent storage: %v. Running in-memory mode.", err)
+	}
+
+	// Trust Root CA for HTTPS interception
+	if err := cert.TrustCA(); err != nil {
+		s.logger.Warnf("Failed to trust Root CA: %v. HTTPS sites may show certificate warnings.", err)
 	}
 
 	// Initialize adblock engine
@@ -72,8 +78,12 @@ func (s *Service) Run(ctx context.Context) error {
 	s.rotationManager = rotation.NewManager()
 	s.analyticsManager = rotation.NewAnalyticsManager()
 
-	// Initialize billing components
+	// Initialize billing manager
 	s.billingManager = billing.NewManager(s.storage)
+
+	// Initialize Payment Providers (Mock keys for now)
+	s.billingManager.SetPaystack(billing.NewPaystackProvider("sk_test_paystack_placeholder"))
+	s.billingManager.SetCrypto(billing.NewCryptoProvider("now_key_placeholder"))
 
 	// Initialize proxy engine
 	s.proxy = proxy.NewEngine(s.config.Proxy, s.adblock, s.rotationManager, s.analyticsManager, s.billingManager)
@@ -83,7 +93,6 @@ func (s *Service) Run(ctx context.Context) error {
 
 	// Initialize API server
 	s.apiServer = api.NewServer(s.adblock, s.killswitch, s.rotationManager, s.analyticsManager, s.billingManager)
-
 
 	// Start all components
 	var wg sync.WaitGroup
@@ -99,14 +108,15 @@ func (s *Service) Run(ctx context.Context) error {
 	}()
 
 	// Start interceptor
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := s.interceptor.Start(ctx); err != nil {
-			errChan <- err
-		}
-	}()
-
+	if s.interceptor != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := s.interceptor.Start(ctx); err != nil {
+				errChan <- err
+			}
+		}()
+	}
 
 	// Start proxy engine
 	wg.Add(1)
@@ -201,4 +211,3 @@ func (s *Service) shutdown() {
 		s.storage.Close()
 	}
 }
-
