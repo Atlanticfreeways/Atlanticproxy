@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"sync"
@@ -123,9 +124,14 @@ func (e *Engine) Start(ctx context.Context) error {
 	// Configure proxy handlers
 	e.setupProxyHandlers()
 
+	// Create listener synchronously to catch port errors immediately
+	listener, err := net.Listen("tcp", e.config.ListenAddr)
+	if err != nil {
+		return fmt.Errorf("failed to listen on %s: %w", e.config.ListenAddr, err)
+	}
+
 	// Create HTTP server
 	e.server = &http.Server{
-		Addr:    e.config.ListenAddr,
 		Handler: e.proxy,
 	}
 
@@ -135,7 +141,7 @@ func (e *Engine) Start(ctx context.Context) error {
 
 	// Start server
 	go func() {
-		if err := e.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := e.server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			fmt.Printf("HTTP Proxy error: %v\n", err)
 		}
 	}()

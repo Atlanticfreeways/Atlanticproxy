@@ -59,7 +59,6 @@ func NewTunInterceptor(config *Config) (*TunInterceptor, error) {
 	}, nil
 }
 
-
 func (t *TunInterceptor) Start(ctx context.Context) error {
 	// Configure TUN interface
 	if err := t.configureTunInterface(); err != nil {
@@ -145,22 +144,40 @@ func (t *TunInterceptor) processPackets(ctx context.Context) {
 	}
 }
 
-
 func (t *TunInterceptor) handlePacket(packet []byte) {
-	// Basic packet parsing and forwarding
-	// This is where we'll integrate with the proxy engine
+	if len(packet) < 20 {
+		return
+	}
 
-	// For now, just log packet info
-	if len(packet) > 20 {
-		version := packet[0] >> 4
-		if version == 4 {
-			// IPv4 packet
-			srcIP := net.IPv4(packet[12], packet[13], packet[14], packet[15])
-			dstIP := net.IPv4(packet[16], packet[17], packet[18], packet[19])
+	versionIHL := packet[0]
+	version := versionIHL >> 4
 
-			// TODO: Route through proxy based on destination
-			_ = srcIP
-			_ = dstIP
+	if version != 4 {
+		return
+	}
+
+	headerLen := (versionIHL & 0x0F) * 4
+	if len(packet) < int(headerLen) {
+		return
+	}
+
+	protocol := packet[9]
+	srcIP := net.IPv4(packet[12], packet[13], packet[14], packet[15])
+	dstIP := net.IPv4(packet[16], packet[17], packet[18], packet[19])
+
+	if len(packet) >= int(headerLen)+4 {
+		payload := packet[headerLen:]
+
+		if protocol == 6 || protocol == 17 {
+			srcPort := uint16(payload[0])<<8 | uint16(payload[1])
+			dstPort := uint16(payload[2])<<8 | uint16(payload[3])
+
+			protoStr := "TCP"
+			if protocol == 17 {
+				protoStr = "UDP"
+			}
+
+			fmt.Printf("TUN: Intercepted %s %s:%d -> %s:%d\n", protoStr, srcIP, srcPort, dstIP, dstPort)
 		}
 	}
 }

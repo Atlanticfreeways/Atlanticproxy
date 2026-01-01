@@ -30,12 +30,12 @@ export interface RotationConfig {
 }
 
 export interface Session {
-    ID: string;
-    CreatedAt: string;
-    ExpiresAt: string;
-    Duration: number;
-    IP?: string;
-    Location?: string;
+    id: string;
+    created_at: string;
+    expires_at: string;
+    duration: number;
+    ip?: string;
+    location?: string;
 }
 
 export interface RotationStats {
@@ -54,17 +54,112 @@ export interface RotationStats {
     }>;
 }
 
+export interface User {
+    id: string;
+    email: string;
+    created_at: string;
+}
+
+export interface AuthResponse {
+    token: string;
+    user: User;
+}
+
 class ApiClient {
     private baseUrl: string;
     private wsUrl: string;
+    private token: string | null = null;
 
     constructor(baseUrl: string = 'http://localhost:8082') {
         this.baseUrl = baseUrl;
         this.wsUrl = baseUrl.replace('http', 'ws');
+        if (typeof window !== 'undefined') {
+            this.token = localStorage.getItem('auth_token');
+        }
+    }
+
+    private async request(endpoint: string, options: RequestInit = {}): Promise<Response> {
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            ...(options.headers as Record<string, string>),
+        };
+
+        if (this.token) {
+            headers['Authorization'] = `Bearer ${this.token}`;
+        }
+
+        const response = await fetch(`${this.baseUrl}${endpoint}`, {
+            ...options,
+            headers,
+        });
+
+        if (response.status === 401) {
+            // Token expired or invalid
+            this.logout();
+            if (typeof window !== 'undefined') {
+                window.location.href = '/login';
+            }
+        }
+
+        return response;
+    }
+
+    setToken(token: string) {
+        this.token = token;
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('auth_token', token);
+        }
+    }
+
+    logout() {
+        this.token = null;
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('auth_token');
+        }
+    }
+
+    async login(email: string, password: string): Promise<User> {
+        const response = await this.request('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password }),
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || 'Login failed');
+        }
+
+        const data: AuthResponse = await response.json();
+        this.setToken(data.token);
+        return data.user;
+    }
+
+    async register(email: string, password: string): Promise<User> {
+        const response = await this.request('/api/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({ email, password }),
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || 'Registration failed');
+        }
+
+        const data: AuthResponse = await response.json();
+        this.setToken(data.token);
+        return data.user;
+    }
+
+    async getMe(): Promise<User> {
+        const response = await this.request('/api/auth/me');
+        if (!response.ok) {
+            throw new Error('Failed to fetch user');
+        }
+        return response.json();
     }
 
     async getStatus(): Promise<ProxyStatus> {
-        const response = await fetch(`${this.baseUrl}/status`);
+        const response = await this.request('/status');
         if (!response.ok) {
             throw new Error('Failed to fetch status');
         }
@@ -72,7 +167,7 @@ class ApiClient {
     }
 
     async getStatistics(): Promise<Statistics> {
-        const response = await fetch(`${this.baseUrl}/api/statistics`);
+        const response = await this.request('/api/statistics');
         if (!response.ok) {
             throw new Error('Failed to fetch statistics');
         }
@@ -80,7 +175,7 @@ class ApiClient {
     }
 
     async toggleKillSwitch(): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/killswitch?enabled=true`, {
+        const response = await this.request('/killswitch?enabled=true', {
             method: 'POST',
         });
         if (!response.ok) {
@@ -88,9 +183,8 @@ class ApiClient {
         }
     }
 
-
     async getWhitelist(): Promise<string[]> {
-        const response = await fetch(`${this.baseUrl}/adblock/whitelist`);
+        const response = await this.request('/adblock/whitelist');
         if (!response.ok) {
             throw new Error('Failed to fetch whitelist');
         }
@@ -99,7 +193,7 @@ class ApiClient {
     }
 
     async addToWhitelist(domain: string): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/adblock/whitelist`, {
+        const response = await this.request('/adblock/whitelist', {
             method: 'POST',
             body: JSON.stringify({ domain }),
         });
@@ -109,7 +203,7 @@ class ApiClient {
     }
 
     async removeFromWhitelist(domain: string): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/adblock/whitelist?domain=${domain}`, {
+        const response = await this.request(`/adblock/whitelist?domain=${domain}`, {
             method: 'DELETE',
         });
         if (!response.ok) {
@@ -147,7 +241,7 @@ class ApiClient {
     }
 
     async getRotationConfig(): Promise<RotationConfig> {
-        const response = await fetch(`${this.baseUrl}/api/rotation/config`);
+        const response = await this.request('/api/rotation/config');
         if (!response.ok) {
             throw new Error('Failed to fetch rotation config');
         }
@@ -155,12 +249,9 @@ class ApiClient {
     }
 
     async setRotationConfig(config: RotationConfig): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/api/rotation/config`, {
+        const response = await this.request('/api/rotation/config', {
             method: 'POST',
             body: JSON.stringify(config),
-            headers: {
-                'Content-Type': 'application/json'
-            }
         });
         if (!response.ok) {
             throw new Error('Failed to update rotation config');
@@ -168,7 +259,7 @@ class ApiClient {
     }
 
     async getCurrentSession(): Promise<Session> {
-        const response = await fetch(`${this.baseUrl}/api/rotation/session/current`);
+        const response = await this.request('/api/rotation/session/current');
         if (!response.ok) {
             throw new Error('Failed to fetch current session');
         }
@@ -176,7 +267,7 @@ class ApiClient {
     }
 
     async forceRotation(): Promise<Session> {
-        const response = await fetch(`${this.baseUrl}/api/rotation/session/new`, {
+        const response = await this.request('/api/rotation/session/new', {
             method: 'POST'
         });
         if (!response.ok) {
@@ -187,7 +278,7 @@ class ApiClient {
     }
 
     async getRotationStats(): Promise<RotationStats> {
-        const response = await fetch(`${this.baseUrl}/api/rotation/stats`);
+        const response = await this.request('/api/rotation/stats');
         if (!response.ok) {
             throw new Error('Failed to fetch rotation stats');
         }
@@ -195,12 +286,9 @@ class ApiClient {
     }
 
     async setGeoTargeting(config: { country: string, city?: string, state?: string }): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/api/rotation/geo`, {
+        const response = await this.request('/api/rotation/geo', {
             method: 'POST',
             body: JSON.stringify(config),
-            headers: {
-                'Content-Type': 'application/json'
-            }
         });
         if (!response.ok) {
             throw new Error('Failed to update geo targeting');
@@ -210,7 +298,7 @@ class ApiClient {
     // Billing API
 
     async getPlans(): Promise<Array<Plan>> {
-        const response = await fetch(`${this.baseUrl}/api/billing/plans`);
+        const response = await this.request('/api/billing/plans');
         if (!response.ok) {
             throw new Error('Failed to fetch plans');
         }
@@ -219,7 +307,7 @@ class ApiClient {
     }
 
     async getSubscription(): Promise<{ subscription: Subscription, plan: Plan }> {
-        const response = await fetch(`${this.baseUrl}/api/billing/subscription`);
+        const response = await this.request('/api/billing/subscription');
         if (!response.ok) {
             throw new Error('Failed to fetch subscription');
         }
@@ -227,12 +315,9 @@ class ApiClient {
     }
 
     async subscribe(planID: string): Promise<Subscription> {
-        const response = await fetch(`${this.baseUrl}/api/billing/subscribe`, {
+        const response = await this.request('/api/billing/subscribe', {
             method: 'POST',
             body: JSON.stringify({ plan_id: planID }),
-            headers: {
-                'Content-Type': 'application/json'
-            }
         });
         if (!response.ok) {
             throw new Error('Failed to subscribe');
@@ -242,7 +327,7 @@ class ApiClient {
     }
 
     async getUsage(): Promise<UsageStats> {
-        const response = await fetch(`${this.baseUrl}/api/billing/usage`);
+        const response = await this.request('/api/billing/usage');
         if (!response.ok) {
             throw new Error('Failed to fetch usage stats');
         }
@@ -250,12 +335,9 @@ class ApiClient {
     }
 
     async createCheckout(req: CheckoutRequest): Promise<CheckoutResponse> {
-        const response = await fetch(`${this.baseUrl}/api/billing/checkout`, {
+        const response = await this.request('/api/billing/checkout', {
             method: 'POST',
             body: JSON.stringify(req),
-            headers: {
-                'Content-Type': 'application/json'
-            }
         });
         if (!response.ok) {
             throw new Error('Failed to create checkout');
@@ -266,51 +348,62 @@ class ApiClient {
     // Ad-Blocking Advanced API
 
     async refreshAdblock(): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/adblock/refresh`, { method: 'POST' });
+        const response = await this.request('/adblock/refresh', { method: 'POST' });
         if (!response.ok) throw new Error('Failed to refresh blocklists');
     }
 
     async getAdblockStats(): Promise<AdblockStats> {
-        const response = await fetch(`${this.baseUrl}/adblock/stats`);
+        const response = await this.request('/adblock/stats');
         if (!response.ok) throw new Error('Failed to fetch adblock stats');
         return response.json();
     }
 
     async getCustomRules(): Promise<string[]> {
-        const response = await fetch(`${this.baseUrl}/adblock/custom`);
+        const response = await this.request('/adblock/custom');
         if (!response.ok) throw new Error('Failed to fetch custom rules');
         const data = await response.json();
         return data.rules || [];
     }
 
     async setCustomRules(rules: string[]): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/adblock/custom`, {
+        const response = await this.request('/adblock/custom', {
             method: 'POST',
             body: JSON.stringify({ rules }),
-            headers: { 'Content-Type': 'application/json' }
         });
         if (!response.ok) throw new Error('Failed to update custom rules');
+    }
+
+    async createCheckoutSession(data: { plan_id: string, email: string, method: string, currency: string }): Promise<CheckoutResponse> {
+        const response = await this.request('/api/billing/checkout', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || 'Failed to create checkout session');
+        }
+        return response.json();
     }
 }
 
 export interface Plan {
-    ID: string;
-    Name: string;
-    PriceMonthly: number;
-    PriceAnnual: number;
-    DataLimitMB: number;
-    RequestLimit: number;
-    ConcurrentConns: number;
-    Features: string[];
+    id: string;
+    name: string;
+    price_monthly: number;
+    price_annual: number;
+    data_limit_mb: number;
+    request_limit: number;
+    concurrent_conns: number;
+    features: string[];
 }
 
 export interface Subscription {
-    ID: string;
-    PlanID: string;
-    Status: string;
-    StartDate: string;
-    EndDate: string;
-    AutoRenew: boolean;
+    id: string;
+    plan_id: string;
+    status: string;
+    start_date: string;
+    end_date: string;
+    auto_renew: boolean;
 }
 
 export interface UsageStats {

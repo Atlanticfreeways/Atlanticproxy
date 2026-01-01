@@ -1,29 +1,28 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Check, CreditCard, CaretRight } from '@phosphor-icons/react';
+import { useEffect, useState } from 'react';
 import { apiClient, Plan, Subscription } from '@/lib/api';
-import { QRCodeSVG } from 'qrcode.react';
+import { Loader2, Check, CreditCard, Shield, Zap, Lock, Globe } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function BillingPage() {
-    const [plans, setPlans] = useState<Plan[]>([]);
-    const [currentSub, setCurrentSub] = useState<Subscription | null>(null);
-    const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
+    const router = useRouter();
+    const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [annual, setAnnual] = useState(false);
+    const [subscription, setSubscription] = useState<Subscription | null>(null);
+    const [plans, setPlans] = useState<Plan[]>([]);
 
-
-    const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+    // Checkout State
+    const [processing, setProcessing] = useState<string | null>(null); // PlanID being purchased
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
     const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'crypto'>('paystack');
-    const [currency, setCurrency] = useState('USD');
-    const [isProcessing, setIsProcessing] = useState(false);
+
+    // Crypto checkout details
     const [cryptoDetails, setCryptoDetails] = useState<{ address: string, amount: string, currency: string } | null>(null);
 
     useEffect(() => {
+        setMounted(true);
         loadData();
     }, []);
 
@@ -34,8 +33,7 @@ export default function BillingPage() {
                 apiClient.getSubscription()
             ]);
             setPlans(plansData);
-            setCurrentSub(subData.subscription);
-            setCurrentPlan(subData.plan);
+            setSubscription(subData.subscription);
         } catch (error) {
             console.error('Failed to load billing data:', error);
         } finally {
@@ -43,223 +41,242 @@ export default function BillingPage() {
         }
     };
 
-    const handleInitialUpgrade = (planID: string) => {
-        if (currentSub?.PlanID === planID) return;
-        setSelectedPlanId(planID);
-        setCryptoDetails(null);
+    const handleUpgrade = (plan: Plan) => {
+        setSelectedPlan(plan);
+        setShowPaymentModal(true);
+        setCryptoDetails(null); // Reset
     };
 
-    const handleCheckout = async () => {
-        if (!selectedPlanId) return;
+    const processPayment = async () => {
+        console.log('Processing payment for:', selectedPlan?.id, 'via:', paymentMethod);
+        if (!selectedPlan) {
+            console.error('No plan selected');
+            return;
+        }
+        setProcessing(selectedPlan.id);
 
-        setIsProcessing(true);
         try {
-            const resp = await apiClient.createCheckout({
-                plan_id: selectedPlanId,
-                email: 'user@example.com', // In real app, gets from auth state
-                method: paymentMethod,
-                currency: currency
-            });
+            // Initiate Checkout
+            const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+            const user = userStr ? JSON.parse(userStr) : {};
+            const email = user.email || 'user@example.com';
+            console.log('Using email for checkout:', email);
 
-            if (resp.url) {
-                // For Paystack or if crypto returns a URL
-                window.location.href = resp.url;
-            } else if (resp.address) {
-                // For Crypto details
+            const response = await apiClient.createCheckoutSession({
+                plan_id: selectedPlan.id,
+                email: email,
+                method: paymentMethod,
+                currency: paymentMethod === 'paystack' ? 'USD' : 'btc' // Default currencies
+            });
+            console.log('Checkout response:', response);
+
+            if (paymentMethod === 'paystack' && response.url) {
+                // Redirect to Paystack
+                window.location.href = response.url;
+            } else if (paymentMethod === 'crypto' && response.address) {
+                // Show Crypto Details
                 setCryptoDetails({
-                    address: resp.address,
-                    amount: resp.amount || '0',
-                    currency: resp.currency || 'BTC'
+                    address: response.address,
+                    amount: response.amount || '0',
+                    currency: response.currency || 'btc'
                 });
+                setProcessing(null); // Stop spinner, show details
             }
+
         } catch (error) {
             console.error('Checkout failed:', error);
-        } finally {
-            setIsProcessing(false);
+            alert('Payment initialization failed: ' + (error as any).message);
+            setProcessing(null);
         }
     };
 
-    if (loading) {
-        return <div className="text-white">Loading billing info...</div>;
+    if (!mounted || loading) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+            </div>
+        );
     }
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            <div>
-                <h1 className="text-3xl font-bold text-white mb-2">Billing & Subscription</h1>
-                <p className="text-neutral-400">Manage your plan and billing details</p>
+        <div className="p-8 space-y-8 max-w-7xl mx-auto">
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold text-white mb-2">Billing & Plans</h1>
+                <p className="text-zinc-400">Manage your subscription and usage limits.</p>
             </div>
 
-            {/* Selection Overview / Modal-like overlay */}
-            {selectedPlanId && (
-                <Card className="bg-neutral-900 border-blue-600 ring-1 ring-blue-600 mb-8">
-                    <CardHeader>
-                        <CardTitle className="text-white flex justify-between items-center">
-                            <span>Complete Upgrade to {plans.find(p => p.ID === selectedPlanId)?.Name}</span>
-                            <Button variant="ghost" className="text-neutral-400" onClick={() => setSelectedPlanId(null)}>×</Button>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        {!cryptoDetails ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <label className="text-sm font-medium text-neutral-400">Payment method</label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button
-                                            onClick={() => setPaymentMethod('paystack')}
-                                            className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${paymentMethod === 'paystack' ? 'bg-blue-600/10 border-blue-600 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-400 opacity-60'}`}
-                                        >
-                                            <CreditCard size={24} />
-                                            <span className="text-xs font-bold">Paystack</span>
-                                        </button>
-                                        <button
-                                            onClick={() => { setPaymentMethod('crypto'); setCurrency('btc'); }}
-                                            className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${paymentMethod === 'crypto' ? 'bg-orange-600/10 border-orange-600 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-400 opacity-60'}`}
-                                        >
-                                            <Badge className="bg-orange-600 text-[10px] mb-[-12px] z-10">ANONYMOUS</Badge>
-                                            <CaretRight size={24} className="rotate-90" />
-                                            <span className="text-xs font-bold">Crypto</span>
-                                        </button>
-                                    </div>
-                                </div>
+            {/* Current Subscription Card */}
+            <div className="glass p-6 rounded-2xl border border-white/5 bg-gradient-to-br from-zinc-900 to-black">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <div className="text-sm font-medium text-purple-400 mb-1">CURRENT PLAN</div>
+                        <div className="text-2xl font-bold text-white capitalize flex items-center gap-2">
+                            {subscription?.plan_id || 'Free'} Plan
+                            <span className={`px-2 py-0.5 rounded-full text-xs ${subscription?.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                {subscription?.status || 'Inactive'}
+                            </span>
+                        </div>
+                        <div className="text-zinc-500 text-sm mt-1">
+                            Expires: {subscription?.end_date ? new Date(subscription.end_date).toLocaleDateString() : 'Never'}
+                        </div>
+                    </div>
+                    {/* Usage Bar */}
+                    <div className="w-full md:w-64">
+                        <div className="flex justify-between text-xs mb-1">
+                            <span className="text-zinc-400">Data Usage</span>
+                            <span className="text-white">0 GB / {subscription?.plan_id === 'starter' ? '500 MB' : plans.find(p => p.id === subscription?.plan_id)?.data_limit_mb ? (plans.find(p => p.id === subscription?.plan_id)!.data_limit_mb / 1024) + ' GB' : 'Unlimited'}</span>
+                        </div>
+                        <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-purple-500 w-[5%]"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                                <div className="space-y-4">
-                                    <label className="text-sm font-medium text-neutral-400">Select Currency</label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {(paymentMethod === 'paystack' ? ['USD', 'NGN', 'GHS'] : ['BTC', 'ETH', 'SOL', 'USDT']).map((curr) => (
-                                            <button
-                                                key={curr}
-                                                onClick={() => setCurrency(curr.toLowerCase())} // Backend expects lowercase
-                                                className={`px-4 py-2 rounded-lg text-sm font-bold border transition-all ${currency.toUpperCase() === curr.toUpperCase() ? 'bg-white text-black border-white' : 'bg-neutral-800 border-neutral-700 text-neutral-400'}`}
-                                            >
-                                                {curr}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <p className="text-xs text-neutral-500">
-                                        {paymentMethod === 'paystack' ? '* Paystack supports local African bank transfers and cards.' : '* Send payment directly to our secure vault.'}
-                                    </p>
-                                </div>
+            {/* Plans Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {plans.map((plan) => (
+                    <div key={plan.id} className={`glass p-6 rounded-2xl border transition-all duration-300 hover:-translate-y-1 ${subscription?.plan_id === plan.id ? 'border-purple-500/50 bg-purple-500/5' : 'border-white/5 hover:border-white/10'}`}>
+                        <h3 className="text-xl font-bold text-white mb-2">{plan.name}</h3>
+                        <div className="text-3xl font-bold text-white mb-4">
+                            ${plan.price_monthly} <span className="text-zinc-500 text-lg font-normal">/mo</span>
+                        </div>
+
+                        <div className="space-y-3 mb-8 min-h-[120px]">
+                            {/* Feature List */}
+                            <div className="flex items-center gap-2 text-sm text-zinc-300">
+                                <Check className="w-4 h-4 text-green-500" />
+                                <span>{plan.data_limit_mb > 0 ? (plan.data_limit_mb >= 1024 ? `${plan.data_limit_mb / 1024} GB` : `${plan.data_limit_mb} MB`) : 'Unlimited'} Bandwidth</span>
                             </div>
-                        ) : (
-                            <div className="flex flex-col items-center py-6 text-center space-y-4">
-                                <div className="p-6 bg-white rounded-2xl shadow-xl">
-                                    <QRCodeSVG
-                                        value={cryptoDetails.address}
-                                        size={200}
-                                        level="H"
-                                        includeMargin={true}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-center gap-2 mb-2">
-                                        <Badge className="bg-green-600">DIRECT P2P</Badge>
-                                        <Badge variant="outline" className="text-neutral-400">ORDER #{cryptoDetails.address.slice(0, 6)}</Badge>
-                                    </div>
-                                    <p className="text-neutral-400 text-sm">Send approx. value (USD)</p>
-                                    <p className="text-3xl font-mono font-bold text-white">${cryptoDetails.amount}</p>
-                                    <p className="text-neutral-400 text-sm mt-4 uppercase">Target {cryptoDetails.currency} Address:</p>
-                                    <div className="bg-black p-4 rounded-xl font-mono text-sm text-blue-400 break-all select-all cursor-pointer border border-neutral-800 hover:border-blue-500 transition-colors">
-                                        {cryptoDetails.address}
-                                    </div>
-                                    <div className="mt-6 p-4 bg-blue-600/10 border border-blue-600/20 rounded-lg text-left">
-                                        <p className="text-xs text-blue-400 leading-relaxed font-medium">
-                                            ⚠️ After sending, please take a screenshot of your transaction and contact support with your Email and User ID to activate your plan immediately.
-                                        </p>
-                                    </div>
-                                </div>
+                            <div className="flex items-center gap-2 text-sm text-zinc-300">
+                                <Check className="w-4 h-4 text-green-500" />
+                                <span>{plan.concurrent_conns} Concurrent Connections</span>
                             </div>
-                        )}
-                    </CardContent>
-                    {!cryptoDetails && (
-                        <CardFooter className="border-t border-neutral-800 mt-6 pt-6">
-                            <Button
-                                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold"
-                                disabled={isProcessing}
-                                onClick={handleCheckout}
+                            {plan.features?.map((f, i) => (
+                                <div key={i} className="flex items-center gap-2 text-sm text-zinc-300">
+                                    <Check className="w-4 h-4 text-green-500" />
+                                    <span>{f}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button
+                            onClick={() => handleUpgrade(plan)}
+                            disabled={subscription?.plan_id === plan.id}
+                            className={`w-full py-3 rounded-xl font-medium transition-all ${subscription?.plan_id === plan.id
+                                ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                                : 'bg-white text-black hover:bg-zinc-200'}`}
+                        >
+                            {subscription?.plan_id === plan.id ? 'Current Plan' : 'Upgrade'}
+                        </button>
+                    </div>
+                ))}
+            </div>
+
+            {/* Payment Modal */}
+            {showPaymentModal && selectedPlan && !cryptoDetails && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="glass max-w-md w-full p-6 rounded-2xl border border-white/10 animate-in fade-in zoom-in-95">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-white">Purchase {selectedPlan.name}</h2>
+                            <button onClick={() => setShowPaymentModal(false)} className="text-zinc-500 hover:text-white">✕</button>
+                        </div>
+
+                        <div className="space-y-4 mb-6">
+                            <div
+                                onClick={() => setPaymentMethod('paystack')}
+                                className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'paystack' ? 'border-purple-500 bg-purple-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}
                             >
-                                {isProcessing ? 'Processing Securely...' : `Pay & Upgrade Now`}
-                            </Button>
-                        </CardFooter>
-                    )}
-                </Card>
+                                <div className="flex items-center gap-3">
+                                    <CreditCard className="w-5 h-5 text-purple-400" />
+                                    <div>
+                                        <div className="text-white font-medium">Credit / Debit Card</div>
+                                        <div className="text-xs text-zinc-500">Secured by Paystack</div>
+                                    </div>
+                                </div>
+                                {paymentMethod === 'paystack' && <div className="w-4 h-4 rounded-full bg-purple-500 border-2 border-black"></div>}
+                            </div>
+
+                            <div
+                                onClick={() => setPaymentMethod('crypto')}
+                                className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'crypto' ? 'border-orange-500 bg-orange-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Lock className="w-5 h-5 text-orange-400" />
+                                    <div>
+                                        <div className="text-white font-medium">Crypto (BTC, ETH, SOL)</div>
+                                        <div className="text-xs text-zinc-500">Direct Transfer</div>
+                                    </div>
+                                </div>
+                                {paymentMethod === 'crypto' && <div className="w-4 h-4 rounded-full bg-orange-500 border-2 border-black"></div>}
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={processPayment}
+                            disabled={!!processing}
+                            className="w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
+                        >
+                            {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                                <>
+                                    Pay ${selectedPlan.price_monthly}
+                                    <Zap className="w-4 h-4" />
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
             )}
 
-            {/* Current Subscription */}
-            <Card className="bg-neutral-900 border-neutral-800">
-                <CardHeader>
-                    <CardTitle className="text-white">Current Plan</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-2xl font-bold text-blue-500">{currentPlan?.Name}</h2>
-                            <Badge className={currentSub?.Status === 'active' ? 'bg-green-600' : 'bg-yellow-600'}>
-                                {currentSub?.Status?.toUpperCase()}
-                            </Badge>
+            {/* Crypto Details Modal (After selection) */}
+            {cryptoDetails && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="glass max-w-md w-full p-6 rounded-2xl border border-white/10">
+                        <h2 className="text-xl font-bold text-white mb-4 text-center">Send Payment</h2>
+
+                        <div className="bg-white p-4 rounded-xl mb-6 mx-auto w-48 h-48 flex items-center justify-center">
+                            {/* QR Code Placeholder */}
+                            <div className="w-full h-full bg-black text-white flex items-center justify-center text-xs text-center p-4">
+                                <div className="space-y-2">
+                                    <Globe className="w-8 h-8 mx-auto text-purple-500 animate-pulse" />
+                                    <div className="font-mono">{cryptoDetails.currency.toUpperCase()} QR</div>
+                                </div>
+                            </div>
                         </div>
-                        <p className="text-neutral-400 mt-1">
-                            Renews on {currentSub?.EndDate ? new Date(currentSub.EndDate).toLocaleDateString() : 'N/A'}
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
 
-            {/* Plans List */}
-            <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-white">Available Plans</h2>
-                    <div className="flex items-center gap-3 bg-neutral-900 p-1 rounded-lg border border-neutral-800">
-                        <span className={`text-sm px-3 py-1 rounded-md transition-colors ${!annual ? 'bg-neutral-800 text-white' : 'text-neutral-400'}`}>Monthly</span>
-                        <Switch checked={annual} onCheckedChange={setAnnual} />
-                        <span className={`text-sm px-3 py-1 rounded-md transition-colors ${annual ? 'bg-neutral-800 text-white' : 'text-neutral-400'}`}>Annual <span className="text-green-500 text-xs ml-1">-20%</span></span>
+                        <div className="space-y-4">
+                            <div className="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800">
+                                <div className="text-xs text-zinc-500 mb-1">Send Exactly</div>
+                                <div className="text-lg font-mono text-white select-all">{cryptoDetails.amount} USD Equivalent</div>
+                            </div>
+
+                            <div className="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800">
+                                <div className="text-xs text-zinc-500 mb-1">To Address ({cryptoDetails.currency.toUpperCase()})</div>
+                                <div className="text-sm font-mono text-white break-all select-all">{cryptoDetails.address}</div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 flex gap-3">
+                            <button
+                                onClick={() => { setCryptoDetails(null); setShowPaymentModal(false); }}
+                                className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-xl text-sm"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    alert("Thank you! Your payment is being verified. This can take up to 24 hours.");
+                                    setCryptoDetails(null);
+                                    setShowPaymentModal(false);
+                                }}
+                                className="flex-1 bg-green-600 hover:bg-green-500 text-white py-2 rounded-xl text-sm font-medium"
+                            >
+                                I Have Sent It
+                            </button>
+                        </div>
                     </div>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {plans.map((plan) => (
-                        <Card
-                            key={plan.ID}
-                            className={`bg-neutral-900 border-neutral-800 flex flex-col ${currentSub?.PlanID === plan.ID ? 'ring-2 ring-blue-600' : ''} ${selectedPlanId === plan.ID ? 'border-blue-600 bg-blue-600/5' : ''}`}
-                        >
-                            <CardHeader>
-                                <CardTitle className="text-white text-lg">{plan.Name}</CardTitle>
-                                <CardDescription>
-                                    <span className="text-3xl font-bold text-white">
-                                        ${annual ? (plan.PriceAnnual / 12).toFixed(0) : plan.PriceMonthly}
-                                    </span>
-                                    <span className="text-neutral-500">/mo</span>
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex-1 space-y-4">
-                                <ul className="space-y-2">
-                                    {plan.Features.map((feature, i) => (
-                                        <li key={i} className="flex items-start gap-2 text-sm text-neutral-300">
-                                            <Check size={16} className="text-blue-500 mt-0.5 shrink-0" />
-                                            <span>{feature}</span>
-                                        </li>
-                                    ))}
-                                    <li className="flex items-start gap-2 text-sm text-neutral-300">
-                                        <Check size={16} className="text-blue-500 mt-0.5 shrink-0" />
-                                        <span>
-                                            {plan.DataLimitMB === -1 ? 'Unlimited Data' : `${(plan.DataLimitMB / 1024).toFixed(1)}GB Data`}
-                                        </span>
-                                    </li>
-                                </ul>
-                            </CardContent>
-                            <CardFooter>
-                                <Button
-                                    className={`w-full ${currentSub?.PlanID === plan.ID ? 'bg-neutral-800 text-neutral-400 cursor-default' : 'bg-white text-black hover:bg-neutral-200'}`}
-                                    onClick={() => handleInitialUpgrade(plan.ID)}
-                                    disabled={currentSub?.PlanID === plan.ID}
-                                >
-                                    {currentSub?.PlanID === plan.ID ? 'Current Plan' : 'Upgrade'}
-                                </Button>
-                            </CardFooter>
-                        </Card>
-                    ))}
-                </div>
-            </div>
+            )}
         </div>
     );
 }

@@ -54,7 +54,7 @@ func TestNewTunInterceptor_Error(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected error, got nil")
 	}
-	if err.Error() != "failed to create TUN interface: mock error" {
-		t.Errorf("Expected 'failed to create TUN interface: mock error', got '%v'", err)
+	if err.Error() != "failed to create TUN interface after retries: mock error" {
+		t.Errorf("Expected 'failed to create TUN interface after retries: mock error', got '%v'", err)
 	}
 }

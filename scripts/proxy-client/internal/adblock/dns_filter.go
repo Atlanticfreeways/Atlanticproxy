@@ -3,6 +3,7 @@ package adblock
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -24,15 +25,20 @@ func NewDNSFilter(blocklist *BlocklistManager, compliance *ComplianceManager) *D
 }
 
 func (f *DNSFilter) Start(ctx context.Context, addr string) error {
+	pc, err := net.ListenPacket("udp", addr)
+	if err != nil {
+		return fmt.Errorf("failed to listen on %s: %w", addr, err)
+	}
+
 	f.server = &dns.Server{
-		Addr:    addr,
-		Net:     "udp",
-		Handler: dns.HandlerFunc(f.handleDNSRequest),
+		PacketConn: pc,
+		Net:        "udp",
+		Handler:    dns.HandlerFunc(f.handleDNSRequest),
 	}
 
 	fmt.Printf("Atlantic: DNS Filter starting on %s\n", addr)
 	go func() {
-		if err := f.server.ListenAndServe(); err != nil {
+		if err := f.server.ActivateAndServe(); err != nil {
 			fmt.Printf("Atlantic: DNS Filter failed: %v\n", err)
 		}
 	}()
@@ -83,4 +89,3 @@ func (f *DNSFilter) ShouldBlock(domain string) bool {
 
 	return f.blocklist.Contains(domain)
 }
-

@@ -97,7 +97,7 @@ func (tun *TunInterface) CreateInterface(name string) error {
 	switch runtime.GOOS {
 	case "darwin": // macOS
 		config.PlatformSpecificParams = water.PlatformSpecificParams{
-			Name: name,
+			// Name: name, // COMMENTED OUT: Let OS pick next available utunX to avoid conflict
 		}
 	case "linux":
 		config.PlatformSpecificParams = water.PlatformSpecificParams{
@@ -116,7 +116,8 @@ func (tun *TunInterface) CreateInterface(name string) error {
 	}
 
 	tun.iface = iface
-	tun.name = name
+	tun.iface = iface
+	tun.name = iface.Name()
 
 	// Configure interface IP
 	if err := tun.configureInterface(); err != nil {
@@ -154,18 +155,24 @@ func (tun *TunInterface) configureInterface() error {
 
 // configureMacOS - Configure TUN interface on macOS
 func (tun *TunInterface) configureMacOS() error {
+	// macOS TUN is Point-to-Point.
+	// Syntax: ifconfig <interface> <local_ip> <destination_ip> netmask <mask> up
+	// We use a /32 mask for the interface itself in P2P mode usually, but /24 is common for VPNs.
+	// Let's force a clear syntax.
 	commands := [][]string{
-		{"ifconfig", tun.name, "10.8.0.1", "10.8.0.2", "up"},
+		{"ifconfig", tun.name, "10.8.0.1", "10.8.0.2", "netmask", "255.255.255.0", "up"},
 		{"route", "add", "-net", "10.8.0.0/24", "-interface", tun.name},
 	}
 
-	for _, cmd := range commands {
-		if err := execCommand(cmd[0], cmd[1:]...).Run(); err != nil {
-			return fmt.Errorf("failed to execute %v: %v", cmd, err)
+	for _, cmdBytes := range commands {
+		cmd := execCommand(cmdBytes[0], cmdBytes[1:]...)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to execute %v: %v, output: %s", cmdBytes, err, string(output))
 		}
 	}
 
-	log.Println("Atlantic: macOS TUN interface configured")
+	log.Println("Atlantic: macOS TUN interface configured successfully")
 	return nil
 }
 

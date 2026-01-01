@@ -11,6 +11,10 @@ import (
 )
 
 func main() {
+	if os.Getuid() != 0 {
+		log.Fatal("AtlanticProxy Service must be run as root (sudo) to configure network interfaces.")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

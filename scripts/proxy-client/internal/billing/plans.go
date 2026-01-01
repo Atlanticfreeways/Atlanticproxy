@@ -17,24 +17,24 @@ const (
 
 // Plan defines the limits and features of a subscription tier
 type Plan struct {
-	ID              PlanType
-	Name            string
-	PriceMonthly    float64
-	PriceAnnual     float64
-	DataLimitMB     int64 // -1 for unlimited
-	RequestLimit    int64 // -1 for unlimited
-	ConcurrentConns int
-	Features        []string
+	ID              PlanType `json:"id"`
+	Name            string   `json:"name"`
+	PriceMonthly    float64  `json:"price_monthly"`
+	PriceAnnual     float64  `json:"price_annual"`
+	DataLimitMB     int64    `json:"data_limit_mb"` // -1 for unlimited
+	RequestLimit    int64    `json:"request_limit"` // -1 for unlimited
+	ConcurrentConns int      `json:"concurrent_conns"`
+	Features        []string `json:"features"`
 }
 
 // Subscription represents a user's active subscription
 type Subscription struct {
-	ID        string
-	PlanID    PlanType
-	Status    string // active, canceled, past_due
-	StartDate time.Time
-	EndDate   time.Time
-	AutoRenew bool
+	ID        string    `json:"id"`
+	PlanID    PlanType  `json:"plan_id"`
+	Status    string    `json:"status"` // active, canceled, past_due
+	StartDate time.Time `json:"start_date"`
+	EndDate   time.Time `json:"end_date"`
+	AutoRenew bool      `json:"auto_renew"`
 }
 
 // AvailablePlans returns the hardcoded list of plans
@@ -43,8 +43,8 @@ func AvailablePlans() []Plan {
 		{
 			ID:              PlanStarter,
 			Name:            "Starter",
-			PriceMonthly:    0,
-			PriceAnnual:     0,
+			PriceMonthly:    9,
+			PriceAnnual:     90,
 			DataLimitMB:     500,
 			RequestLimit:    1000,
 			ConcurrentConns: 5,

@@ -15,6 +15,16 @@ type Config struct {
 	Proxy       *proxy.Config       `yaml:"proxy"`
 	KillSwitch  *killswitch.Config  `yaml:"killswitch"`
 	Monitor     *monitor.Config     `yaml:"monitor"`
+	Billing     *BillingConfig      `yaml:"billing"`
+	API         *APIConfig          `yaml:"api"`
+}
+
+type APIConfig struct {
+	Port string `yaml:"port"`
+}
+
+type BillingConfig struct {
+	PaystackSecretKey string `yaml:"paystack_secret_key"`
 }
 
 func Load() *Config {
@@ -41,6 +51,12 @@ func Load() *Config {
 		},
 		Monitor: &monitor.Config{
 			CheckInterval: 5,
+		},
+		Billing: &BillingConfig{
+			PaystackSecretKey: getEnv("PAYSTACK_SECRET_KEY", ""),
+		},
+		API: &APIConfig{
+			Port: getEnv("SERVER_PORT", "8082"),
 		},
 	}
 

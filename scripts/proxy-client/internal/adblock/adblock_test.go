@@ -6,7 +6,7 @@ import (
 )
 
 func TestBlocklistManager(t *testing.T) {
-	manager := NewBlocklistManager()
+	manager := NewBlocklistManager(nil)
 
 	data := `
 # Comment
@@ -29,15 +29,15 @@ tracker.io
 	if manager.Contains("good-site.com") {
 		t.Error("Should not contain good-site.com")
 	}
-	
+
 	stats := manager.GetStats()
-	if stats["ads"] != 1 {
-		t.Errorf("Expected 1 ad block stat, got %d", stats["ads"])
+	if val, ok := stats["ads"].(int64); !ok || val != 1 {
+		t.Errorf("Expected 1 ad block stat, got %v", stats["ads"])
 	}
 }
 
 func TestDNSFilter(t *testing.T) {
-	bm := NewBlocklistManager()
+	bm := NewBlocklistManager(nil)
 	_ = bm.LoadBlocklist(strings.NewReader("doubleclick.net"), "ads")
 	cm := NewComplianceManager("US")
 

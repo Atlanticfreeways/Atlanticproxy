@@ -10,7 +10,7 @@ import (
 
 type Store interface {
 	GetSubscription() (*PersistedSubscription, error)
-	SetSubscription(id, planID, status, start, end string, autoRenew bool) error
+	SetSubscription(userID, id, planID, status, start, end string, autoRenew bool) error
 	GetLatestUsage() (int64, int64, int64, int64, error)
 	UpdateUsage(dataTransferred, requests, ads, threats int64) error
 }
@@ -124,6 +124,7 @@ func (m *Manager) Subscribe(planID PlanType) (*Subscription, error) {
 
 	if m.store != nil {
 		m.store.SetSubscription(
+			"default",
 			m.subscription.ID,
 			string(m.subscription.PlanID),
 			m.subscription.Status,
@@ -150,6 +151,7 @@ func (m *Manager) CancelSubscription() error {
 
 	if m.store != nil {
 		m.store.SetSubscription(
+			"default",
 			m.subscription.ID,
 			string(m.subscription.PlanID),
 			m.subscription.Status,

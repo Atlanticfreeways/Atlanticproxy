@@ -117,4 +117,8 @@ docs/SWAGGER_SETUP.md
 # Keep these public docs (NOT ignored):
 # - README.md
 # - docs/API_REFERENCE.md
-# - docs/USER_GUIDE.md
+# - docs/USER_GUIDE.mdscripts/proxy-client/service
+scripts/proxy-client/validate_auth
+.env.prod.example
+scripts/proxy-client/test_auth.sh
+scripts/proxy-client/validate_*.go

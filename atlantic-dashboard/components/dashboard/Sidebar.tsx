@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { House, ChartLine, Globe, ShieldCheck, Prohibit, Gear, FileText, ArrowsClockwise, CreditCard, ChartBar } from '@phosphor-icons/react';
+import { useRouter, usePathname } from 'next/navigation';
+import { House, ChartLine, Globe, ShieldCheck, Prohibit, Gear, FileText, ArrowsClockwise, CreditCard, ChartBar, SignOut } from '@phosphor-icons/react';
+import { apiClient } from '@/lib/api';
 
 const navItems = [
     { icon: House, label: 'Overview', href: '/dashboard' },
@@ -19,15 +20,21 @@ const navItems = [
 
 export function Sidebar() {
     const pathname = usePathname();
+    const router = useRouter();
+
+    const handleLogout = () => {
+        apiClient.logout();
+        router.push('/login');
+    };
 
     return (
-        <aside className="w-64 bg-neutral-900 border-r border-neutral-800 min-h-screen p-4">
+        <aside className="w-64 bg-neutral-900 border-r border-neutral-800 min-h-screen p-4 flex flex-col">
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-white">AtlanticProxy</h1>
                 <p className="text-sm text-neutral-400">VPN-Grade Protection</p>
             </div>
 
-            <nav className="space-y-2">
+            <nav className="space-y-2 flex-1">
                 {navItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = pathname === item.href;
@@ -47,6 +54,14 @@ export function Sidebar() {
                     );
                 })}
             </nav>
+
+            <button
+                onClick={handleLogout}
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors mt-auto"
+            >
+                <SignOut size={20} />
+                <span className="font-medium">Sign Out</span>
+            </button>
         </aside>
     );
 }

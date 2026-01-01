@@ -88,7 +88,7 @@ export function WorldMap({ lat, lon, connected }: WorldMapProps) {
             <div className="absolute bottom-4 left-4 flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
                 <span className="text-xs font-mono text-neutral-400">
-                    {connected ? `GEOLOCATION: ${lat.toFixed(4)}, ${lon.toFixed(4)}` : 'SIGNAL OFFLINE'}
+                    {connected && lat !== undefined && lon !== undefined ? `GEOLOCATION: ${lat.toFixed(4)}, ${lon.toFixed(4)}` : 'SIGNAL OFFLINE'}
                 </span>
             </div>
 

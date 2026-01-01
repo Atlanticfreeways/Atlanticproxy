@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"sync"
 	"time"
 
@@ -71,8 +73,12 @@ func (s *Service) Run(ctx context.Context) error {
 		s.logger.Warnf("Failed to trust Root CA: %v. HTTPS sites may show certificate warnings.", err)
 	}
 
+	// Detect region for adblock and formatting
+	region := s.detectRegion()
+	s.logger.Infof("Detected region: %s", region)
+
 	// Initialize adblock engine
-	s.adblock = adblock.NewEngine("US", s.storage) // TODO: Detect region
+	s.adblock = adblock.NewEngine(region, s.storage)
 
 	// Initialize rotation components
 	s.rotationManager = rotation.NewManager()
@@ -81,8 +87,13 @@ func (s *Service) Run(ctx context.Context) error {
 	// Initialize billing manager
 	s.billingManager = billing.NewManager(s.storage)
 
-	// Initialize Payment Providers (Mock keys for now)
-	s.billingManager.SetPaystack(billing.NewPaystackProvider("sk_test_paystack_placeholder"))
+	// Initialize Payment Providers
+	if s.config.Billing != nil && s.config.Billing.PaystackSecretKey != "" {
+		s.billingManager.SetPaystack(billing.NewPaystackProvider(s.config.Billing.PaystackSecretKey))
+	} else {
+		s.logger.Warn("Paystack secret key not found, using placeholder")
+		s.billingManager.SetPaystack(billing.NewPaystackProvider("sk_test_paystack_placeholder"))
+	}
 	s.billingManager.SetCrypto(billing.NewCryptoProvider("now_key_placeholder"))
 
 	// Initialize proxy engine
@@ -92,7 +103,7 @@ func (s *Service) Run(ctx context.Context) error {
 	s.monitor = monitor.New(s.config.Monitor)
 
 	// Initialize API server
-	s.apiServer = api.NewServer(s.adblock, s.killswitch, s.rotationManager, s.analyticsManager, s.billingManager)
+	s.apiServer = api.NewServer(s.adblock, s.killswitch, s.interceptor, s.proxy, s.rotationManager, s.analyticsManager, s.billingManager, s.storage)
 
 	// Start all components
 	var wg sync.WaitGroup
@@ -102,7 +113,8 @@ func (s *Service) Run(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := s.adblock.Start(ctx, "127.0.0.1:5353"); err != nil {
+		// Port 5353 is often taken by mDNS, using 5053 instead
+		if err := s.adblock.Start(ctx, "127.0.0.1:5053"); err != nil {
 			errChan <- err
 		}
 	}()
@@ -140,7 +152,7 @@ func (s *Service) Run(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := s.apiServer.Start(ctx); err != nil {
+		if err := s.apiServer.Start(ctx, s.config.API.Port); err != nil {
 			errChan <- err
 		}
 	}()
@@ -210,4 +222,39 @@ func (s *Service) shutdown() {
 		}
 		s.storage.Close()
 	}
+}
+
+func (s *Service) detectRegion() string {
+	// Simple structure for IP-API response
+	type ipResp struct {
+		CountryCode string `json:"countryCode"`
+	}
+
+	client := http.Client{
+		Timeout: 2 * time.Second,
+	}
+
+	resp, err := client.Get("http://ip-api.com/json/?fields=countryCode")
+	if err != nil {
+		s.logger.Warnf("Failed to detect region (network error): %v. Defaulting to US.", err)
+		return "US"
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		s.logger.Warnf("Failed to detect region (status %d). Defaulting to US.", resp.StatusCode)
+		return "US"
+	}
+
+	var data ipResp
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		s.logger.Warnf("Failed to parse region response: %v. Defaulting to US.", err)
+		return "US"
+	}
+
+	if data.CountryCode == "" {
+		return "US"
+	}
+
+	return data.CountryCode
 }

@@ -35,20 +35,59 @@ func NewTunInterceptor(config *Config) (*TunInterceptor, error) {
 		}
 	}
 
-	iface, err := newWater(water.Config{
-		DeviceType: water.TUN,
-		PlatformSpecificParams: water.PlatformSpecificParams{
-			Name: config.InterfaceName,
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create TUN interface: %w", err)
+	var iface *water.Interface
+	var err error
+
+	// Try to find an available TUN interface
+	// If specific name requested, try it first
+	startIdx := 9
+	if len(config.InterfaceName) > 4 && config.InterfaceName[:4] == "utun" {
+		// Just try what's requested first
+		iface, err = newWater(water.Config{
+			DeviceType: water.TUN,
+			PlatformSpecificParams: water.PlatformSpecificParams{
+				Name: config.InterfaceName,
+			},
+		})
+		if err == nil {
+			return &TunInterceptor{
+				iface:  iface,
+				config: config,
+			}, nil
+		}
+	} else {
+		// If custom name not utunX, try it
+		iface, err = newWater(water.Config{
+			DeviceType: water.TUN,
+			PlatformSpecificParams: water.PlatformSpecificParams{
+				Name: config.InterfaceName,
+			},
+		})
+		if err == nil {
+			return &TunInterceptor{iface: iface, config: config}, nil
+		}
 	}
 
-	return &TunInterceptor{
-		iface:  iface,
-		config: config,
-	}, nil
+	// Fallback/Retry logic: Try utun9 to utun19
+	for i := startIdx; i < 20; i++ {
+		name := fmt.Sprintf("utun%d", i)
+		iface, err = newWater(water.Config{
+			DeviceType: water.TUN,
+			PlatformSpecificParams: water.PlatformSpecificParams{
+				Name: name,
+			},
+		})
+		if err == nil {
+			// Success! Update config to match actual interface
+			config.InterfaceName = name
+			return &TunInterceptor{
+				iface:  iface,
+				config: config,
+			}, nil
+		}
+	}
+
+	return nil, fmt.Errorf("failed to create TUN interface after retries: %w", err)
 }
 
 func (t *TunInterceptor) Start(ctx context.Context) error {
@@ -113,20 +152,45 @@ func (t *TunInterceptor) processPackets(ctx context.Context) {
 }
 
 func (t *TunInterceptor) handlePacket(packet []byte) {
-	// Basic packet parsing and forwarding
-	// This is where we'll integrate with the proxy engine
+	// Basic packet parsing
+	if len(packet) < 20 {
+		return
+	}
 
-	// For now, just log packet info
-	if len(packet) > 20 {
-		version := packet[0] >> 4
-		if version == 4 {
-			// IPv4 packet
-			srcIP := net.IPv4(packet[12], packet[13], packet[14], packet[15])
-			dstIP := net.IPv4(packet[16], packet[17], packet[18], packet[19])
+	versionIHL := packet[0]
+	version := versionIHL >> 4
 
-			// TODO: Route through proxy based on destination
-			_ = srcIP
-			_ = dstIP
+	if version != 4 {
+		return // Only IPv4 for now
+	}
+
+	headerLen := (versionIHL & 0x0F) * 4
+	if len(packet) < int(headerLen) {
+		return
+	}
+
+	protocol := packet[9]
+	srcIP := net.IPv4(packet[12], packet[13], packet[14], packet[15])
+	dstIP := net.IPv4(packet[16], packet[17], packet[18], packet[19])
+
+	// Parse Transport Layer
+	if len(packet) >= int(headerLen)+4 {
+		payload := packet[headerLen:]
+
+		// TCP (6) or UDP (17)
+		if protocol == 6 || protocol == 17 {
+			srcPort := uint16(payload[0])<<8 | uint16(payload[1])
+			dstPort := uint16(payload[2])<<8 | uint16(payload[3])
+
+			protoStr := "TCP"
+			if protocol == 17 {
+				protoStr = "UDP"
+			}
+
+			// Log interception (debug level in real world, print for now)
+			// TODO: Integrate with tun2socks or similar for actual proxying
+			// Currently serving as a traffic monitor/firewall
+			fmt.Printf("TUN: Intercepted %s %s:%d -> %s:%d\n", protoStr, srcIP, srcPort, dstIP, dstPort)
 		}
 	}
 }

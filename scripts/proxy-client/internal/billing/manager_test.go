@@ -5,7 +5,7 @@ import (
 )
 
 func TestSubscriptionLifecycle(t *testing.T) {
-	manager := NewManager()
+	manager := NewManager(nil)
 
 	// 1. Initial State (Starter)
 	sub := manager.GetSubscription()
@@ -24,7 +24,7 @@ func TestSubscriptionLifecycle(t *testing.T) {
 	if newSub.PlanID != PlanPersonal {
 		t.Errorf("Expected plan to be Personal, got %s", newSub.PlanID)
 	}
-	
+
 	// Verify manager state updated
 	currentSub := manager.GetSubscription()
 	if currentSub.ID != newSub.ID {
@@ -36,7 +36,7 @@ func TestSubscriptionLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to cancel subscription: %v", err)
 	}
-	
+
 	canceledSub := manager.GetSubscription()
 	if canceledSub.AutoRenew {
 		t.Error("Expected AutoRenew to be false after cancellation")
@@ -47,7 +47,7 @@ func TestSubscriptionLifecycle(t *testing.T) {
 }
 
 func TestQuotaEnforcement(t *testing.T) {
-	manager := NewManager()
+	manager := NewManager(nil)
 
 	// Use Starter Plan (500MB Data, 1000 Requests, 5 Conns)
 	// Reset usage for testing
@@ -60,7 +60,7 @@ func TestQuotaEnforcement(t *testing.T) {
 		t.Errorf("Expected quota to be okay at 999 requests, got error: %v", err)
 	}
 
-	// Add one more (1000) - Limit is inclusive or exclusive? 
+	// Add one more (1000) - Limit is inclusive or exclusive?
 	// Plan says limit is 1000. Usually means max allowed is 1000.
 	// Logic: requests >= limit => error. So 1000 should error?
 	// Let's check logic: if stats.RequestsMade >= plan.RequestLimit { return error }
@@ -68,7 +68,7 @@ func TestQuotaEnforcement(t *testing.T) {
 	// Usually "Limit" means you can't exceed it. If I have made 1000 requests, I have reached the limit. Can I make the 1001st?
 	// The check is usually performed BEFORE an action.
 	// If I have made 999, I check quota. 999 < 1000. OK. I make request. Now 1000.
-	// Next request: I have made 1000. 1000 >= 1000. Error. 
+	// Next request: I have made 1000. 1000 >= 1000. Error.
 	// So I can make exactly 1000 requests. Correct.
 
 	manager.Usage.AddRequest() // Now 1000
@@ -103,8 +103,8 @@ func TestQuotaEnforcement(t *testing.T) {
 }
 
 func TestUnlimitedPlan(t *testing.T) {
-	manager := NewManager()
-	
+	manager := NewManager(nil)
+
 	// Upgrade to Enterprise (Unlimited)
 	_, err := manager.Subscribe(PlanEnterprise)
 	if err != nil {
@@ -114,7 +114,7 @@ func TestUnlimitedPlan(t *testing.T) {
 	// Set insane usage
 	manager.Usage.currentUsage.RequestsMade = 1000000
 	manager.Usage.currentUsage.DataTransferred = 1000 * 1024 * 1024 * 1024 // 1TB
-	manager.Usage.currentUsage.ActiveConnections = 500 // Limit is 1000, wait Enterprise connections is 1000, not unlimited.
+	manager.Usage.currentUsage.ActiveConnections = 500                     // Limit is 1000, wait Enterprise connections is 1000, not unlimited.
 	// Enterprise Data/Reqs are -1 (Unlimited)
 
 	if err := manager.CheckQuota(); err != nil {
