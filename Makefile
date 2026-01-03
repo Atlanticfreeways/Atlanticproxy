@@ -1,6 +1,8 @@
 .PHONY: build-all build-service build-tray build-web run-web clean test package monitor-up monitor-down
 
-DOCKER_COMPOSE := $(shell command -v docker-compose 2>/dev/null || echo "docker compose")
+# Docker detection (with macOS support)
+DOCKER := $(shell command -v docker 2>/dev/null || echo "/Applications/Docker.app/Contents/Resources/bin/docker")
+DOCKER_COMPOSE := $(shell command -v docker-compose 2>/dev/null || echo "$(DOCKER) compose")
 
 # -----------------------------------------------------------------------------
 # 🏗️ Build Targets
