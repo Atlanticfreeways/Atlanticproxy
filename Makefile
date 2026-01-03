@@ -1,6 +1,6 @@
-# 🌊 AtlanticProxy Master Makefile
+.PHONY: build-all build-service build-tray build-web run-web clean test package monitor-up monitor-down
 
-.PHONY: build-all build-service build-tray build-web run-web clean test package
+DOCKER_COMPOSE := $(shell command -v docker-compose 2>/dev/null || echo "docker compose")
 
 # -----------------------------------------------------------------------------
 # 🏗️ Build Targets
@@ -13,7 +13,7 @@ build-all: build-service build-tray build-web
 # Build the core background service
 build-service:
 	@echo "🔨 Building AtlanticProxy Service..."
-	go build -o bin/atlantic-service ./cmd/service
+	cd scripts/proxy-client && go build -o ../../bin/atlantic-service ./cmd/service
 	@echo "✅ Service build completed"
 
 # Build the system tray application
@@ -43,9 +43,25 @@ run-web:
 
 # Production build and packaging
 package:
+ifeq ($(shell uname), Darwin)
+	@echo "🎁 Packaging for macOS..."
+	chmod +x scripts/package_macos.sh
+	./scripts/package_macos.sh
+else
 	@echo "🎁 Packaging for production..."
 	chmod +x scripts/build_installers.sh
 	./scripts/build_installers.sh
+endif
+
+# 📊 Monitoring Targets
+monitor-up:
+	@echo "📈 Starting Prometheus & Grafana..."
+	$(DOCKER_COMPOSE) -f docker/docker-compose.monitoring.yml up -d
+	@echo "✅ Monitoring started! Grafana: http://localhost:3001 (admin/admin)"
+
+monitor-down:
+	@echo "📉 Stopping monitoring..."
+	$(DOCKER_COMPOSE) -f docker/docker-compose.monitoring.yml down
 
 # -----------------------------------------------------------------------------
 # 🧹 Cleanup & Test

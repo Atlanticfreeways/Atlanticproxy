@@ -1,114 +1,146 @@
 # 🚀 Run Guide: AtlanticProxy
 
-This guide details the commands to start, stop, and restart the AtlanticProxy application stack.
+This guide details the commands to start, stop, and configure the AtlanticProxy application stack.
 
 ## 📋 Quick Reference
 
-| Component | Port | Local URL |
-|-----------|------|-----------|
-| **Frontend** | 3000 | http://localhost:3000 |
-| **Backend API** | 8082 | http://localhost:8082 |
-| **SOCKS5 Proxy** | 1080 | `127.0.0.1:1080` |
-| **DNS Filter** | 5053 | `127.0.0.1:5053` |
+| Component | Role | Port | Command |
+| :--- | :--- | :--- | :--- |
+| **Backend Service** | Core Logic & TUN | 8082 | `sudo ./service` |
+| **System Tray** | GUI Control | - | `go run ./cmd/tray` |
+| **Web Dashboard** | Web Interface | 3000 | `npm run dev` |
+| **SOCKS5 Proxy** | Local Proxy | 1080 | `127.0.0.1:1080` |
+| **Prometheus** | Monitoring | 9090 | `localhost:8082/metrics` |
 
 ---
 
-## 🛠 Backend Service
-**Location:** `scripts/proxy-client`
+## � 0. Configuration
+Before starting, ensure your environment is configured for your proxy provider.
 
-### 1. Build the Service
-Always rebuild if you've made code changes.
+**Location**: `scripts/proxy-client/.env`
+```env
+# Proxy Provider Selection (auto, residential, realtime, pia)
+PROVIDER_TYPE=auto
+
+# Oxylabs Residential (Username/Password)
+OXYLABS_USERNAME=your_username
+OXYLABS_PASSWORD=your_password
+
+# Oxylabs Realtime/Crawler (API Key)
+OXYLABS_API_KEY=your_key
+
+# PIA S5 Proxy (API Key)
+PIA_API_KEY=your_pia_key
+```
+
+---
+
+## 🏗️ 1. Backend Service (Go)
+**Requires**: `sudo` (for TUN interface creation).
+
+### Build & Run (Single Step)
 ```bash
-cd "scripts/proxy-client"
+cd scripts/proxy-client
 go build -o service ./cmd/service
+sudo ./service
 ```
 
-### 2. Start the Service
-⚠️ **Requires sudo** due to network interface (TUN) creation and port binding.
-Run this from the **project root**:
+### Stop & Restart
 ```bash
-cd scripts/proxy-client && go build -o service ./cmd/service && sudo ./service
-```
-*Expected Output:*
-```text
-✅ AtlanticProxy service started successfully
-✅ DNS Filter starting on 127.0.0.1:5053
-✅ Starting HTTP API server on :8082
-```
-
-### 3. Stop & Restart (One-Liner)
-If you need to refresh the backend after code changes:
-```bash
-sudo pkill -9 service; cd scripts/proxy-client && go build -o service ./cmd/service && sudo ./service
+sudo pkill -9 service
+sudo ./service
 ```
 
 ---
 
-## 🖥 Frontend Dashboard
-**Location:** `atlantic-dashboard`
+## 🍏 2. System Tray App (Go)
+The tray app provides quick access and notifications in the macOS menu bar.
 
-### 1. Install Dependencies (First Run Only)
+### Run from Source
 ```bash
-cd "atlantic-dashboard"
+# Run from root
+go run ./cmd/tray
+```
+
+### Build Binary
+```bash
+make build-tray
+./bin/atlantic-tray
+```
+
+---
+
+## 🖥️ 3. Web Dashboard (Next.js)
+The full management interface.
+
+### First Time Setup
+```bash
+cd atlantic-dashboard
 npm install
 ```
 
-### 2. Start Development Server
-Use this for active development. Auto-reloads on change.
+### Run Development Server
 ```bash
-cd "atlantic-dashboard"
+cd atlantic-dashboard
 npm run dev
 ```
 
-### 3. Build & Start (Production Mode)
-Use this for testing the final optimized build.
+---
+
+## 🧪 4. Testing & Stability
+### Stress Test (k6)
+Simulate heavy traffic to verify rotation and billing.
 ```bash
-cd "atlantic-dashboard"
-npm run build
-npm start
+k6 run scripts/proxy-client/scripts/stress_test.js
 ```
+
+### Long-Duration Stability Test
+Execute the automated 72h stability suite.
+```bash
+bash scripts/stability_test.sh
+```
+
+---
+
+## � 6. Monitoring (Prometheus & Grafana)
+The system is instrumented to provide real-time metrics for health, connections, and performance.
+
+### Start Monitoring Stack
+```bash
+make monitor-up
+```
+
+### Accessing Dashboards
+*   **Grafana**: [http://localhost:3001](http://localhost:3001)
+    *   **User**: `admin`
+    *   **Password**: `admin`
+*   **Prometheus (Raw Data)**: [http://localhost:9091](http://localhost:9091)
+
+### What to look for in Grafana:
+1.  **Dashboard**: Create or Import a dashboard.
+2.  **Datasource**: I've pre-configured "Prometheus" as the default data source.
+3.  **Key Metrics**:
+    *   `atlantic_proxy_active_connections`: Total current users.
+    *   `atlantic_proxy_provider_latency`: Real-time ping to Oxylabs/PIA.
+    *   `atlantic_proxy_rotation_total`: Count of proxy rotations.
+    *   `go_memstats_heap_alloc_bytes`: Memory footprint (Target: < 50MB).
 
 ---
 
 ## 🔧 Troubleshooting
 
 ### Port Conflicts
-If you see "address already in use" errors:
-
-**Check what's using the ports:**
+If you see "address already in use":
 ```bash
-# Check Backend API
-sudo lsof -i :8082
-
-# Check SOCKS5
-sudo lsof -i :1080
-
-# Check DNS
-sudo lsof -i :5053
-```
-
-**Kill conflicting processes:**
-```bash
-# Kill by PID (replace 1234 with PID from lsof)
-sudo kill -9 1234
-
-# OR Kill all Atlantic services
+sudo lsof -i :8082  # API
+sudo lsof -i :1080  # SOCKS5
+sudo lsof -i :5053  # DNS (if enabled)
 sudo pkill -9 service
-sudo pkill -9 -f "atlantic"
 ```
 
-### Database
-**Location:** `./atlantic.db` (In the directory where you run the service)
-
-**Reset Database (Delete all data):**
+### Resetting State
+To wipe the database and start fresh:
 ```bash
-rm atlantic.db
+rm scripts/proxy-client/atlantic.db
 ```
-*The service will automatically recreate the database and seed default data on next startup.*
-
-### System Service Conflicts
-If the service keeps auto-restarting or you can't free port 8080/8082:
-```bash
-# Unload the LaunchDaemon
-sudo launchctl bootout system /Library/LaunchDaemons/com.atlanticproxy.client.plist
-```
+*(The service will recreate and seed it on next start)*
