@@ -10,7 +10,8 @@ This guide details the commands to start, stop, and configure the AtlanticProxy 
 | **System Tray** | GUI Control | - | `go run ./cmd/tray` |
 | **Web Dashboard** | Web Interface | 3000 | `npm run dev` |
 | **SOCKS5 Proxy** | Local Proxy | 1080 | `127.0.0.1:1080` |
-| **Prometheus** | Monitoring | 9090 | `localhost:8082/metrics` |
+| **Prometheus** | Metrics | 9091 | `http://localhost:9091` |
+| **Grafana** | Visuals | 3001 | `http://localhost:3001` |
 
 ---
 
@@ -102,7 +103,7 @@ bash scripts/stability_test.sh
 
 ---
 
-## � 6. Monitoring (Prometheus & Grafana)
+## 📊 5. Monitoring (Grafana & Prometheus)
 The system is instrumented to provide real-time metrics for health, connections, and performance.
 
 ### Start Monitoring Stack
@@ -112,18 +113,17 @@ make monitor-up
 
 ### Accessing Dashboards
 *   **Grafana**: [http://localhost:3001](http://localhost:3001)
-    *   **User**: `admin`
-    *   **Password**: `admin`
+    *   **User/Pass**: `admin` / `admin`
+    *   **Dashboards Configured**:
+        *   ✅ **AtlanticProxy - System Health**: CPU, RAM, Goroutines.
+        *   ✅ **AtlanticProxy - Performance**: Latency, Bandwidth, Rotation.
 *   **Prometheus (Raw Data)**: [http://localhost:9091](http://localhost:9091)
 
-### What to look for in Grafana:
-1.  **Dashboard**: Create or Import a dashboard.
-2.  **Datasource**: I've pre-configured "Prometheus" as the default data source.
-3.  **Key Metrics**:
-    *   `atlantic_proxy_active_connections`: Total current users.
-    *   `atlantic_proxy_provider_latency`: Real-time ping to Oxylabs/PIA.
-    *   `atlantic_proxy_rotation_total`: Count of proxy rotations.
-    *   `go_memstats_heap_alloc_bytes`: Memory footprint (Target: < 50MB).
+### Key Metrics to Watch:
+*   `atlantic_proxy_active_connections`: Total current users.
+*   `atlantic_proxy_provider_latency`: Real-time ping to Oxylabs/PIA.
+*   `atlantic_proxy_rotation_failures_total`: Rotation health.
+*   `go_memstats_heap_alloc_bytes`: Memory footprint (Target: < 50MB).
 
 ---
 
