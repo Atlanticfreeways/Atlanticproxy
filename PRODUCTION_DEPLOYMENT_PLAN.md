@@ -63,7 +63,7 @@
 3. **Create Grafana Dashboards** [NO API KEY NEEDED]
    - [x] System Health Dashboard
    - [x] Proxy Performance Dashboard
-   - [x] Business Metrics Dashboard
+   - [ ] Business Metrics Dashboard
 
 **Deliverable:** Working service with live monitoring
 
