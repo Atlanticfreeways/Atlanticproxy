@@ -99,8 +99,9 @@ func (s *Service) Run(ctx context.Context) error {
 	s.adblock = adblock.NewEngine(region, storeInterface)
 
 	// Initialize rotation components
-	s.rotationManager = rotation.NewManager()
+	// Initialize rotation components
 	s.analyticsManager = rotation.NewAnalyticsManager()
+	s.rotationManager = rotation.NewManager(s.analyticsManager)
 
 	// Initialize billing manager
 	s.billingManager = billing.NewManager(s.storage)

@@ -8,7 +8,7 @@ import (
 // since the Manager struct seems to handle state internally.
 
 func TestRotationModeSwitching(t *testing.T) {
-	m := NewManager()
+	m := NewManager(nil)
 
 	// 1. Default should be PerRequest
 	if m.config.Mode != ModePerRequest {
@@ -37,7 +37,7 @@ func TestRotationModeSwitching(t *testing.T) {
 }
 
 func TestSessionGeneration(t *testing.T) {
-	m := NewManager()
+	m := NewManager(nil)
 
 	// Initial session
 	proxy, err := m.GetCurrentSession()
