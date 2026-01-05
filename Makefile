@@ -1,4 +1,4 @@
-.PHONY: build-all build-service build-tray build-web run-web clean test package monitor-up monitor-down
+.PHONY: build-all build-service build-tray build-web run-web dev run-api run-frontend clean test package monitor-up monitor-down
 
 # Docker detection (with macOS support)
 DOCKER := $(shell command -v docker 2>/dev/null || echo "/Applications/Docker.app/Contents/Resources/bin/docker")
@@ -38,6 +38,19 @@ build-web:
 run-web:
 	@echo "🌐 Starting Web Dashboard..."
 	cd atlantic-dashboard && npm run dev
+
+# Start everything unified
+dev:
+	@chmod +x start-dev.sh
+	./start-dev.sh
+
+# Run only the API (standalone for testing)
+run-api:
+	@echo "📡 Starting API Server..."
+	cd scripts/proxy-client && go run cmd/api-only/main.go
+
+# Run only the frontend
+run-frontend: run-web
 
 # -----------------------------------------------------------------------------
 # 📦 Distribution Targets

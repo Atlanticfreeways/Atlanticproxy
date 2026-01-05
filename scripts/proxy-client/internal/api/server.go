@@ -2,12 +2,14 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/atlanticproxy/proxy-client/internal/adblock"
 	"github.com/atlanticproxy/proxy-client/internal/billing"
+	"github.com/atlanticproxy/proxy-client/internal/geo"
 	"github.com/atlanticproxy/proxy-client/internal/interceptor"
 	"github.com/atlanticproxy/proxy-client/internal/killswitch"
 	"github.com/atlanticproxy/proxy-client/internal/proxy"
@@ -15,6 +17,7 @@ import (
 	"github.com/atlanticproxy/proxy-client/internal/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	promhttp "github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 )
 
@@ -36,18 +39,23 @@ type Server struct {
 	analyticsManager *rotation.AnalyticsManager
 	billingManager   *billing.Manager
 	store            *storage.Store
+	geoResolver      *geo.MultiResolver
 	clients          map[*websocket.Conn]bool
 	mu               sync.RWMutex
 }
 
 type ProxyStatus struct {
-	Connected bool    `json:"connected"`
-	IPAddress string  `json:"ip_address,omitempty"`
-	Location  string  `json:"location,omitempty"`
-	Lat       float64 `json:"lat,omitempty"`
-	Lon       float64 `json:"lon,omitempty"`
-	LastCheck string  `json:"last_check,omitempty"`
-	Error     string  `json:"error,omitempty"`
+	Connected       bool    `json:"connected"`
+	IPAddress       string  `json:"ip_address,omitempty"`
+	Location        string  `json:"location,omitempty"`
+	ISP             string  `json:"isp,omitempty"`
+	ASN             string  `json:"asn,omitempty"`
+	Lat             float64 `json:"lat,omitempty"`
+	Lon             float64 `json:"lon,omitempty"`
+	Latency         int64   `json:"latency,omitempty"` // in ms
+	ProtectionLevel string  `json:"protection_level"`  // High, Medium, Low, None
+	LastCheck       string  `json:"last_check,omitempty"`
+	Error           string  `json:"error,omitempty"`
 }
 
 type ConnectRequest struct {
@@ -58,10 +66,15 @@ type ConnectRequest struct {
 
 func NewServer(ab *adblock.Engine, ks *killswitch.Guardian, it *interceptor.TunInterceptor, pr *proxy.Engine, rm *rotation.Manager, am *rotation.AnalyticsManager, bm *billing.Manager, store *storage.Store) *Server {
 	gin.SetMode(gin.ReleaseMode)
-	// ... (router setup)
 	router := gin.New()
-	router.Use(gin.Recovery())
-	// ... middleware ...
+
+	// Custom middleware stack (order matters)
+	router.Use(RecoveryMiddleware(logrus.StandardLogger()))
+	router.Use(RequestIDMiddleware())
+	router.Use(LoggingMiddleware(logrus.StandardLogger()))
+	router.Use(SecurityHeadersMiddleware())
+
+	// CORS
 	router.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -73,10 +86,13 @@ func NewServer(ab *adblock.Engine, ks *killswitch.Guardian, it *interceptor.TunI
 		c.Next()
 	})
 
+	// Rate Limiting
+	router.Use(RateLimiterMiddleware(bm))
+
 	s := &Server{
 		router:           router,
 		logger:           logrus.New(),
-		status:           &ProxyStatus{Connected: false},
+		status:           &ProxyStatus{Connected: false, ProtectionLevel: "None"},
 		adblock:          ab,
 		killswitch:       ks,
 		interceptor:      it,
@@ -85,11 +101,86 @@ func NewServer(ab *adblock.Engine, ks *killswitch.Guardian, it *interceptor.TunI
 		analyticsManager: am,
 		billingManager:   bm,
 		store:            store,
+		geoResolver:      geo.NewMultiResolver(),
 		clients:          make(map[*websocket.Conn]bool),
 	}
 
 	s.setupRoutes()
+	go s.startStatusUpdater()
 	return s
+}
+
+func (s *Server) startStatusUpdater() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		<-ticker.C
+		s.mu.RLock()
+		connected := s.status.Connected
+		s.mu.RUnlock()
+
+		if connected {
+			s.fetchGeoAndBroadcast()
+		}
+	}
+}
+
+func (s *Server) fetchGeoAndBroadcast() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	info, err := s.geoResolver.GetCurrentLocation(ctx)
+	latency := time.Since(start).Milliseconds()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Double check we are still connected
+	if !s.status.Connected {
+		return
+	}
+
+	if err != nil {
+		s.logger.Warnf("Failed to update status: %v", err)
+		s.status.Error = "Geo lookup failed" // Non-critical
+		s.status.Latency = latency
+		s.status.LastCheck = time.Now().Format(time.RFC3339)
+		// Keep previous protection level or set to Low?
+		// s.status.ProtectionLevel = "Low"
+		// Don't downgrade heavily just on geo fail if we are still proxied
+	} else {
+		s.status.IPAddress = info.IP
+		s.status.Location = fmt.Sprintf("%s, %s", info.City, info.Country)
+		s.status.ISP = info.ISP
+		s.status.ASN = info.ASN
+		s.status.Lat = info.Lat
+		s.status.Lon = info.Lon
+		s.status.Latency = latency
+		s.status.LastCheck = time.Now().Format(time.RFC3339)
+		s.status.Error = ""
+		s.status.ProtectionLevel = "High"
+	}
+
+	// Calculate specific protection level logic here if needed
+	// e.g., if Killswitch true -> "Max"
+
+	// Broadcast inside lock ensuring consistency of snapshot sent?
+	// Or outside. Inside is fine for small payload.
+	// But broadcast iterates clients and writes.
+	// We should copy status and broadcast outside.
+	statusCopy := *s.status
+
+	// Release lock before broadcasting to avoid blocking writers if broadcast is slow
+	s.mu.Unlock()
+	s.broadcast(statusCopy)
+	s.mu.Lock() // Re-acquire to satisfy defer (slightly hacky but keeps defer simple, or just use block)
+}
+
+func (s *Server) updateStatusLocked() {
+	// Deprecated / kept for lightweight updates if needed
+	// Currently replaced by async fetch
 }
 
 func (s *Server) setupRoutes() {
@@ -100,6 +191,7 @@ func (s *Server) setupRoutes() {
 	s.router.GET("/killswitch", s.handleGetKillSwitch)
 	s.router.GET("/health", s.handleHealth)
 	s.router.GET("/ws", s.handleWS)
+	s.router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// Ad-block Whitelist API
 	s.router.GET("/adblock/whitelist", s.handleGetWhitelist)
@@ -112,15 +204,6 @@ func (s *Server) setupRoutes() {
 	s.router.GET("/adblock/custom", s.handleGetCustomRules)
 	s.router.POST("/adblock/custom", s.handleAddCustomRules)
 
-	// Rotation API
-	s.router.GET("/api/rotation/config", s.handleGetRotationConfig)
-
-	s.router.POST("/api/rotation/config", s.handleSetRotationConfig)
-	s.router.POST("/api/rotation/session/new", s.handleNewSession)
-	s.router.GET("/api/rotation/session/current", s.handleGetCurrentSession)
-	s.router.GET("/api/rotation/stats", s.handleGetRotationStats)
-	s.router.POST("/api/rotation/geo", s.handleSetGeo)
-
 	// Billing API
 	s.router.GET("/api/billing/plans", s.handleGetPlans)
 	s.router.GET("/api/billing/subscription", s.handleGetSubscription)
@@ -128,6 +211,27 @@ func (s *Server) setupRoutes() {
 	s.router.POST("/api/billing/checkout", s.handleCreateCheckoutSession)
 	s.router.POST("/api/billing/cancel", s.handleCancelSubscription)
 	s.router.GET("/api/billing/usage", s.handleGetUsage)
+	s.router.GET("/api/billing/invoices/:id", s.handleDownloadInvoice)
+
+	// Security API
+	s.router.GET("/api/security/status", s.handleGetSecurityStatus)
+
+	// Protocol API
+	s.router.GET("/api/protocol/credentials", s.handleGetProtocolCredentials)
+
+	// Rotation API
+	s.router.GET("/api/rotation/config", s.handleGetRotationConfig)
+	s.router.POST("/api/rotation/config", s.handleUpdateRotationConfig)
+	s.router.POST("/api/rotation/session/new", s.handleForceRotation) // Override existing if any
+
+	// Compatibility Routes
+	s.router.GET("/api/rotation/session/current", s.handleGetCurrentSession)
+	s.router.GET("/api/rotation/stats", s.handleGetRotationStats)
+	s.router.POST("/api/rotation/geo", s.handleSetGeo)
+
+	// Adblock Management
+	s.router.GET("/api/adblock/config", s.handleGetAdblockConfig)
+	s.router.POST("/api/adblock/category", s.handleToggleAdblockCategory)
 
 	// Auth API
 	authGroup := s.router.Group("/api/auth")
@@ -210,21 +314,27 @@ func (s *Server) handleConnect(c *gin.Context) {
 		}()
 	}
 
+	s.mu.Lock()
 	s.status.Connected = true
-	s.status.IPAddress = "45.133.190.112" // Example residential IP
-	s.status.Location = "New York, USA"
-	s.status.Lat = 40.7128
-	s.status.Lon = -74.0060
-	s.status.LastCheck = time.Now().Format(time.RFC3339)
+	s.status.ProtectionLevel = "Low"
 	s.status.Error = ""
+	statusCopy := *s.status
+	s.mu.Unlock()
 
-	s.broadcast(s.status)
+	s.broadcast(statusCopy)
+
+	// Async refresh for detailed info
+	go s.fetchGeoAndBroadcast()
+
 	c.JSON(http.StatusOK, gin.H{"message": "Connected successfully"})
 }
 
 func (s *Server) handleStatus(c *gin.Context) {
+	s.mu.Lock()
 	s.status.LastCheck = time.Now().Format(time.RFC3339)
-	c.JSON(http.StatusOK, s.status)
+	status := *s.status
+	s.mu.Unlock()
+	c.JSON(http.StatusOK, status)
 }
 
 func (s *Server) handleDisconnect(c *gin.Context) {
@@ -235,10 +345,18 @@ func (s *Server) handleDisconnect(c *gin.Context) {
 		s.interceptor.Stop()
 	}
 
+	s.mu.Lock()
 	s.status.Connected = false
 	s.status.IPAddress = ""
 	s.status.Location = ""
+	s.status.ISP = ""
+	s.status.ASN = ""
+	s.status.ProtectionLevel = "None"
+	s.status.ISP = ""
+	s.status.ASN = ""
+	s.status.Latency = 0
 	s.status.Error = ""
+	s.mu.Unlock()
 
 	s.broadcast(s.status)
 	c.JSON(http.StatusOK, gin.H{"message": "Disconnected successfully"})
@@ -268,8 +386,11 @@ func (s *Server) handleKillSwitch(c *gin.Context) {
 }
 
 func (s *Server) handleGetKillSwitch(c *gin.Context) {
-	// TODO: Get actual kill switch status
-	c.JSON(http.StatusOK, gin.H{"enabled": false})
+	enabled := false
+	if s.killswitch != nil {
+		enabled = s.killswitch.IsEnabled()
+	}
+	c.JSON(http.StatusOK, gin.H{"enabled": enabled})
 }
 
 func (s *Server) handleHealth(c *gin.Context) {

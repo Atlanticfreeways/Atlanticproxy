@@ -13,15 +13,21 @@ import (
 
 	"github.com/atlanticproxy/proxy-client/internal/adblock"
 	"github.com/atlanticproxy/proxy-client/internal/billing"
+	mon "github.com/atlanticproxy/proxy-client/internal/monitor"
 	"github.com/atlanticproxy/proxy-client/internal/rotation"
 	"github.com/atlanticproxy/proxy-client/pkg/cert"
 	"github.com/atlanticproxy/proxy-client/pkg/oxylabs"
+	"github.com/atlanticproxy/proxy-client/pkg/oxylabs/realtime"
+	"github.com/atlanticproxy/proxy-client/pkg/providers"
 	"github.com/elazarl/goproxy"
 )
 
 type Config struct {
 	OxylabsUsername string
 	OxylabsPassword string
+	OxylabsAPIKey   string // For Realtime Crawler API
+	PiaAPIKey       string // For PIA S5 Proxy API
+	ProviderType    string // auto, residential, realtime, pia
 	ListenAddr      string
 	HealthCheckURL  string
 }
@@ -29,6 +35,7 @@ type Config struct {
 type Engine struct {
 	config           *Config
 	oxylabs          *oxylabs.Client
+	providerManager  *providers.Manager
 	adblock          *adblock.Engine
 	rotationManager  *rotation.Manager
 	analyticsManager *rotation.AnalyticsManager
@@ -51,7 +58,39 @@ func NewEngine(config *Config, adblocker *adblock.Engine, rm *rotation.Manager, 
 		}
 	}
 
-	oxylabsClient := oxylabs.NewClient(config.OxylabsUsername, config.OxylabsPassword)
+	// Initialize Provider Manager
+	manager := providers.NewManager()
+	var oxylabsClient *oxylabs.Client
+
+	// 1. Register Oxylabs Residential
+	if config.OxylabsUsername != "" {
+		oxylabsClient = oxylabs.NewClient(config.OxylabsUsername, config.OxylabsPassword)
+		manager.RegisterProvider("residential", &providers.OxylabsResidential{Client: oxylabsClient})
+	}
+
+	// 2. Register Oxylabs Realtime
+	if config.OxylabsAPIKey != "" {
+		rtClient := realtime.NewClient(config.OxylabsAPIKey)
+		manager.RegisterProvider("realtime", &providers.OxylabsRealtime{Client: rtClient})
+	}
+
+	// 3. Register PIA S5 Proxy (Phase 1.5 Multi-Provider)
+	if config.PiaAPIKey != "" {
+		manager.RegisterProvider("pia", providers.NewPIAProvider(config.PiaAPIKey))
+	}
+
+	// 4. Set Active Provider
+	if config.ProviderType == "auto" {
+		if config.OxylabsUsername != "" {
+			manager.SetActive("residential")
+		} else if config.OxylabsAPIKey != "" {
+			manager.SetActive("realtime")
+		} else if config.PiaAPIKey != "" {
+			manager.SetActive("pia")
+		}
+	} else {
+		manager.SetActive(config.ProviderType)
+	}
 
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.Verbose = false
@@ -67,6 +106,7 @@ func NewEngine(config *Config, adblocker *adblock.Engine, rm *rotation.Manager, 
 	engine := &Engine{
 		config:           config,
 		oxylabs:          oxylabsClient,
+		providerManager:  manager,
 		adblock:          adblocker,
 		rotationManager:  rm,
 		analyticsManager: am,
@@ -107,8 +147,22 @@ func NewEngine(config *Config, adblocker *adblock.Engine, rm *rotation.Manager, 
 			}
 		}
 
-		return engine.oxylabs.GetProxyWithConfig(req.Context(), proxyConfig)
+		// Use Provider Manager
+		return engine.providerManager.GetProxy(req.Context(), proxyConfig)
 	}
+
+	// Handle Realtime Crawler API requests via Adapter
+	proxy.OnRequest().DoFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+		// Check if active provider is Realtime
+		provider := engine.providerManager.GetActiveProvider()
+		if rt, ok := provider.(*providers.OxylabsRealtime); ok {
+			// Use adapter
+			// Optimization: Reuse adapter instance or create lightweight one
+			adapter := &RealtimeAdapter{client: rt.Client}
+			return adapter.HandleRequest(req, ctx)
+		}
+		return req, nil
+	})
 
 	return engine
 }
@@ -198,11 +252,17 @@ func (e *Engine) setupProxyHandlers() {
 				"🛡️",
 				fmt.Sprintf("Access to <b>%s</b> has been restricted by your AtlanticProxy Ad-Blocking rules.", req.Host),
 				"Manage Filters",
+				http.StatusForbidden,
 			)
 		}
 
 		// Use shared transport for connection pooling
 		ctx.RoundTripper = goproxy.RoundTripperFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Response, error) {
+			mon.ActiveConnections.Inc()
+			defer mon.ActiveConnections.Dec()
+
+			start := time.Now()
+
 			// Billing: Check Quota
 			if e.billingManager != nil {
 				if err := e.billingManager.CanAcceptConnection(); err != nil {
@@ -213,6 +273,7 @@ func (e *Engine) setupProxyHandlers() {
 						"💳",
 						"You've reached the data or connection limit for your current plan. Upgrade now to restore access.",
 						"Upgrade Plan",
+						http.StatusTooManyRequests,
 					), nil
 				}
 				e.billingManager.Usage.AddRequest()
@@ -220,23 +281,31 @@ func (e *Engine) setupProxyHandlers() {
 
 			resp, err := e.transport.RoundTrip(req)
 
+			// Metrics: Duration
+			mon.RequestDuration.Observe(time.Since(start).Seconds())
+
 			// Analytics
 			if e.analyticsManager != nil {
 				if err != nil {
 					e.analyticsManager.TrackFailure()
+					mon.RotationFailure.Inc()
 				} else {
 					e.analyticsManager.TrackSuccess()
+					mon.RotationSuccess.Inc()
 				}
 			}
 
-			// Billing: Track Bytes
-			if e.billingManager != nil && resp != nil {
-				// Estimate data if ContentLength is missing
+			// Billing & Metrics: Track Bytes
+			if resp != nil {
 				size := resp.ContentLength
 				if size <= 0 {
 					size = 5120 // 5KB estimate for chunks/dynamic
 				}
-				e.billingManager.Usage.AddData(size)
+
+				if e.billingManager != nil {
+					e.billingManager.Usage.AddData(size)
+				}
+				mon.ProcessedBytes.Add(float64(size))
 			}
 
 			return resp, err

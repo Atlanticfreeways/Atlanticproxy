@@ -12,10 +12,14 @@ import (
 	"github.com/atlanticproxy/proxy-client/internal/billing"
 )
 
+// Store implements the storage.Store interface using SQLite.
+// It manages persistence for users, subscriptions, usage tracking, and ad-block rules.
 type Store struct {
 	db *sql.DB
 }
 
+// NewStore creates a new SQLite store at the default location.
+// It automatically initializes the database schema if it doesn't exist.
 func NewStore() (*Store, error) {
 	// Use a standard path for the database
 	home, err := os.UserHomeDir()
@@ -48,9 +52,18 @@ func NewStoreWithPath(dbPath string) (*Store, error) {
 }
 
 func (s *Store) Init() error {
-	// Enable foreign keys
-	if _, err := s.db.Exec("PRAGMA foreign_keys = ON"); err != nil {
-		return err
+	// Optimization pragmas
+	pragmas := []string{
+		"PRAGMA foreign_keys = ON",
+		"PRAGMA journal_mode = WAL",
+		"PRAGMA synchronous = NORMAL",
+		"PRAGMA busy_timeout = 5000",
+		"PRAGMA cache_size = -2000", // ~2MB cache
+	}
+	for _, p := range pragmas {
+		if _, err := s.db.Exec(p); err != nil {
+			return fmt.Errorf("failed to set pragma %s: %w", p, err)
+		}
 	}
 
 	queries := []string{
@@ -99,6 +112,16 @@ func (s *Store) Init() error {
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			expires_at DATETIME NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS payment_transactions (
+			id TEXT PRIMARY KEY,
+			user_id TEXT REFERENCES users(id),
+			plan_id TEXT NOT NULL,
+			amount REAL NOT NULL,
+			currency TEXT NOT NULL,
+			status TEXT NOT NULL,
+			payment_method TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
 		`CREATE TABLE IF NOT EXISTS adblock_whitelist (
 			domain TEXT PRIMARY KEY
 		)`,
@@ -116,6 +139,19 @@ func (s *Store) Init() error {
 	for _, q := range queries {
 		if _, err := s.db.Exec(q); err != nil {
 			return fmt.Errorf("failed to execute query: %s, error: %w", q, err)
+		}
+	}
+
+	// Performance Indexes
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_subs_user_created ON subscriptions(user_id, created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_usage_user_period ON usage_tracking(user_id, period_start, period_end)`,
+		`CREATE INDEX IF NOT EXISTS idx_tx_user_created ON payment_transactions(user_id, created_at DESC)`,
+	}
+
+	for _, idx := range indexes {
+		if _, err := s.db.Exec(idx); err != nil {
+			return fmt.Errorf("failed to create index: %s, error: %w", idx, err)
 		}
 	}
 
@@ -198,14 +234,7 @@ func (s *Store) SetCustomRules(rules []string) error {
 
 // --- Usage ---
 
-func (s *Store) UpdateUsage(dataTransferred, requests, ads, threats int64) error {
-	// For V1 MVP with single user, we use a placeholder user_id 'default' or similar if no auth system is active.
-	// Assuming 'default' user for local proxy usage.
-	userID := "default"
-
-	// Create default user if not exists (hack for MVP)
-	s.db.Exec("INSERT OR IGNORE INTO users (id, email, password_hash) VALUES (?, ?, ?)", userID, "local@localhost", "none")
-
+func (s *Store) UpdateUsage(userID string, dataTransferred, requests, ads, threats int64) error {
 	_, err := s.db.Exec(`
 		INSERT INTO usage_tracking (user_id, period_start, period_end, data_transferred_bytes, requests_made, ads_blocked, threats_blocked)
 		VALUES (?, datetime('now','start of month'), datetime('now','start of month','+1 month','-1 second'), ?, ?, ?, ?)
@@ -218,8 +247,7 @@ func (s *Store) UpdateUsage(dataTransferred, requests, ads, threats int64) error
 	return err
 }
 
-func (s *Store) GetLatestUsage() (int64, int64, int64, int64, error) {
-	userID := "default"
+func (s *Store) GetLatestUsage(userID string) (int64, int64, int64, int64, error) {
 	var data, reqs, ads, threats int64
 	err := s.db.QueryRow(`
 		SELECT data_transferred_bytes, requests_made, ads_blocked, threats_blocked 
@@ -235,14 +263,8 @@ func (s *Store) GetLatestUsage() (int64, int64, int64, int64, error) {
 
 // --- Subscriptions ---
 
-func (s *Store) GetSubscription() (*billing.PersistedSubscription, error) {
-	// MVP: Fetch for 'default' user
+func (s *Store) GetSubscription(userID string) (*billing.PersistedSubscription, error) {
 	var sub billing.PersistedSubscription
-	// Join with plans logic? For now just raw fetch.
-	// Actually, manager.PersistedSubscription expects generic fields.
-
-	// Check if we have one for default user
-	userID := "default"
 	err := s.db.QueryRow(`
 		SELECT id, plan_id, status, start_date, end_date, auto_renew 
 		FROM subscriptions 
@@ -268,8 +290,7 @@ func (s *Store) SetSubscription(userID, id, planID, status, start, end string, a
 	}
 	defer tx.Rollback()
 
-	// Ensure user exists
-	tx.Exec("INSERT OR IGNORE INTO users (id, email, password_hash) VALUES (?, ?, ?)", userID, "local@localhost", "none")
+	// Ensure user exists (skipped, assume generic user existence check handled elsewhere or FK will fail)
 
 	// Mark others as canceled? Or just insert.
 	// Let's just insert.
@@ -377,4 +398,43 @@ func (s *Store) GetSession(token string) (*Session, error) {
 func (s *Store) DeleteSession(token string) error {
 	_, err := s.db.Exec("DELETE FROM sessions WHERE token = ?", token)
 	return err
+}
+
+// --- Transactions ---
+
+type Transaction struct {
+	ID            string
+	UserID        string
+	PlanID        string
+	Amount        float64
+	Currency      string
+	Status        string
+	PaymentMethod string
+	CreatedAt     time.Time
+}
+
+func (s *Store) CreateTransaction(tx *Transaction) error {
+	_, err := s.db.Exec(`
+		INSERT INTO payment_transactions (id, user_id, plan_id, amount, currency, status, payment_method, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`, tx.ID, tx.UserID, tx.PlanID, tx.Amount, tx.Currency, tx.Status, tx.PaymentMethod, tx.CreatedAt.Format(time.RFC3339))
+	return err
+}
+
+func (s *Store) GetTransaction(id string) (*Transaction, error) {
+	var tx Transaction
+	var createdAt string
+
+	err := s.db.QueryRow(`
+		SELECT id, user_id, plan_id, amount, currency, status, payment_method, created_at
+		FROM payment_transactions
+		WHERE id = ?
+	`, id).Scan(&tx.ID, &tx.UserID, &tx.PlanID, &tx.Amount, &tx.Currency, &tx.Status, &tx.PaymentMethod, &createdAt)
+
+	if err != nil {
+		return nil, err
+	}
+
+	tx.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+	return &tx, nil
 }

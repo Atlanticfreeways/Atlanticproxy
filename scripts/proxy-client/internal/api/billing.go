@@ -1,7 +1,9 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/atlanticproxy/proxy-client/internal/billing"
 	"github.com/gin-gonic/gin"
@@ -9,7 +11,7 @@ import (
 
 // handleGetPlans returns all available plans
 func (s *Server) handleGetPlans(c *gin.Context) {
-	plans := billing.AvailablePlans()
+	plans := s.billingManager.GetAvailablePlans()
 	c.JSON(http.StatusOK, gin.H{"plans": plans})
 }
 
@@ -77,4 +79,74 @@ func (s *Server) handleCreateCheckoutSession(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, resp)
+}
+
+// handleDownloadInvoice generates and downloads a PDF invoice
+func (s *Server) handleDownloadInvoice(c *gin.Context) {
+	id := c.Param("id")
+
+	var data *billing.InvoiceData
+	if id == "test" {
+		// Mock Data for testing
+		data = &billing.InvoiceData{
+			ID:            "INV-TEST-001",
+			Date:          time.Now(),
+			CustomerName:  "Test User",
+			CustomerEmail: "user@example.com",
+			Currency:      "NGN",
+			Symbol:        "₦",
+			Items: []billing.InvoiceItem{
+				{Description: "AtlanticProxy Starter Plan (Monthly)", Quantity: 1, Price: 13635.00, Amount: 13635.00},
+			},
+			Total: 13635.00,
+		}
+	} else {
+		// Fetch transaction from database
+		tx, err := s.store.GetTransaction(id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Invoice not found"})
+			return
+		}
+
+		// Get user details
+		user, err := s.store.GetUserByID(tx.UserID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user details"})
+			return
+		}
+
+		// Get plan details
+		plan, err := billing.GetPlan(billing.PlanType(tx.PlanID))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch plan details"})
+			return
+		}
+
+		// Get currency symbol
+		currencyCode := billing.CurrencyCode(tx.Currency)
+		symbol := billing.GetCurrencySymbol(currencyCode)
+
+		data = &billing.InvoiceData{
+			ID:            "INV-" + tx.ID,
+			Date:          tx.CreatedAt,
+			CustomerName:  "", // Could add name field to users table
+			CustomerEmail: user.Email,
+			Currency:      tx.Currency,
+			Symbol:        symbol,
+			Items: []billing.InvoiceItem{
+				{Description: plan.Name + " Plan (Monthly)", Quantity: 1, Price: tx.Amount, Amount: tx.Amount},
+			},
+			Total: tx.Amount,
+		}
+	}
+
+	pdfBytes, err := billing.GenerateInvoicePDF(data)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate invoice"})
+		return
+	}
+
+	c.Header("Content-Type", "application/pdf")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=invoice_%s.pdf", id))
+	c.Data(http.StatusOK, "application/pdf", pdfBytes)
 }

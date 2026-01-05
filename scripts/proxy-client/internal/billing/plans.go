@@ -25,6 +25,11 @@ type Plan struct {
 	RequestLimit    int64    `json:"request_limit"` // -1 for unlimited
 	ConcurrentConns int      `json:"concurrent_conns"`
 	Features        []string `json:"features"`
+	// Localized Pricing Fields
+	DisplayPriceMonthly float64 `json:"display_price_monthly"`
+	DisplayPriceAnnual  float64 `json:"display_price_annual"`
+	Currency            string  `json:"currency"`
+	Symbol              string  `json:"symbol"`
 }
 
 // Subscription represents a user's active subscription
@@ -37,14 +42,20 @@ type Subscription struct {
 	AutoRenew bool      `json:"auto_renew"`
 }
 
-// AvailablePlans returns the hardcoded list of plans
+// AvailablePlans returns the hardcoded list of plans (Default USD)
 func AvailablePlans() []Plan {
-	return []Plan{
+	return AvailablePlansInCurrency(CurrencyUSD)
+}
+
+// AvailablePlansInCurrency returns plans with prices converted to the target currency
+func AvailablePlansInCurrency(code CurrencyCode) []Plan {
+	symbol := GetCurrencySymbol(code)
+	plans := []Plan{
 		{
 			ID:              PlanStarter,
 			Name:            "Starter",
-			PriceMonthly:    9,
-			PriceAnnual:     90,
+			PriceMonthly:    9,  // Base USD
+			PriceAnnual:     90, // Base USD
 			DataLimitMB:     500,
 			RequestLimit:    1000,
 			ConcurrentConns: 5,
@@ -81,9 +92,19 @@ func AvailablePlans() []Plan {
 			Features:        []string{"Dedicated Pool", "Account Manager", "SLA", "Custom Integrations"},
 		},
 	}
+
+	// Apply conversion
+	for i := range plans {
+		plans[i].Currency = string(code)
+		plans[i].Symbol = symbol
+		plans[i].DisplayPriceMonthly = ConvertPrice(plans[i].PriceMonthly, code)
+		plans[i].DisplayPriceAnnual = ConvertPrice(plans[i].PriceAnnual, code)
+	}
+
+	return plans
 }
 
-// GetPlan returns a plan by ID
+// GetPlan returns a plan by ID (Default USD)
 func GetPlan(id PlanType) (Plan, error) {
 	for _, p := range AvailablePlans() {
 		if p.ID == id {

@@ -20,7 +20,7 @@ type Session struct {
 func NewSession(duration time.Duration) *Session {
 	id := generateSessionID()
 	now := time.Now()
-	
+
 	expiresAt := time.Time{}
 	if duration > 0 {
 		expiresAt = now.Add(duration)
@@ -47,7 +47,7 @@ func generateSessionID() string {
 // IsExpired checks if the current session has expired
 func (s *Session) IsExpired() bool {
 	if s.Duration == 0 {
-		return false // 0 means per-request or undefined expiration logic handled elsewhere
+		return true // 0 means per-request, so it expires immediately after use
 	}
 	return time.Now().After(s.ExpiresAt)
 }

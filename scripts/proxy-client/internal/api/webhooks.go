@@ -10,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/atlanticproxy/proxy-client/internal/billing"
+	"github.com/atlanticproxy/proxy-client/internal/storage"
 	"github.com/gin-gonic/gin"
 )
 
@@ -99,32 +101,32 @@ func (s *Server) handlePaystackWebhook(c *gin.Context) {
 
 		s.logger.Infof("Upgrading user %s to plan %s via Paystack", userID, planID)
 
-		// HACK: Start billing manager session for this user context if needed,
-		// but since BillingManager currently acts globally or assumes 'Subscribe' creates a record,
-		// we need to ensure we call the correct storage method.
-		// For High-Speed V1, we will mock the context or use a lower-level CreateSubscription.
-		// However, s.billingManager.Subscribe() works on the *active* subscription of the manager.
-		// We needs a method to subscribe *arbitrary* user.
-
-		// Use the Store directly to ensure data integrity
-		expiresAt := time.Now().AddDate(0, 1, 0) // +1 Month default
-		err := s.store.SetSubscription(
-			userID,
-			event.Data.Reference,
-			planID,
-			"active",
-			time.Now().Format(time.RFC3339),
-			expiresAt.Format(time.RFC3339),
-			true,
-		)
-
+		// Create subscription using BillingManager
+		err := s.billingManager.SubscribeUser(userID, billing.PlanType(planID), event.Data.Reference)
 		if err != nil {
-			s.logger.Errorf("Failed to update subscription in DB: %v", err)
+			s.logger.Errorf("Failed to create subscription: %v", err)
 			c.Status(http.StatusInternalServerError)
 			return
 		}
 
-		s.logger.Info("Subscription updated successfully!")
+		// Create transaction record for invoice generation
+		tx := &storage.Transaction{
+			ID:            event.Data.Reference,
+			UserID:        userID,
+			PlanID:        planID,
+			Amount:        float64(event.Data.Amount) / 100.0, // Paystack amounts are in kobo/cents
+			Currency:      "NGN",                              // Paystack default
+			Status:        "completed",
+			PaymentMethod: "paystack",
+			CreatedAt:     time.Now(),
+		}
+
+		if err := s.store.CreateTransaction(tx); err != nil {
+			s.logger.Errorf("Failed to create transaction record: %v", err)
+			// Don't fail the webhook - subscription is already created
+		}
+
+		s.logger.Info("Subscription and transaction created successfully!")
 	}
 
 	c.Status(http.StatusOK)

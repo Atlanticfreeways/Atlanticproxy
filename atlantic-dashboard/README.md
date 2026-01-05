@@ -89,7 +89,24 @@ The dashboard connects to the AtlanticProxy backend API at `http://localhost:808
 - `GET /api/statistics` - Get usage statistics
 - `POST /api/killswitch/toggle` - Toggle kill switch
 
-## 🎨 Design System
+## 🧪 Testing
+
+### Unit Tests (Jest)
+```bash
+npm test
+```
+
+### End-to-End Tests (Playwright)
+```bash
+npm run test:e2e
+```
+
+## 🎨 Design System (Enterprise)
+
+### Principles
+- **Strict Icon Minimalism:** Navigation is text-only. Icons are reserved for essential indicators (Bell, CurrencyDollar).
+- **Consolidated Layout:** Card-based dashboard with strategic CTAs.
+- **Semantic Spacing:** Variables (`--spacing-xs` to `--spacing-xl`) enforce consistency.
 
 ### Colors
 

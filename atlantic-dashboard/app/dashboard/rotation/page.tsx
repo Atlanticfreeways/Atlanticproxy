@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, MapPin, Clock, Shield, Globe } from 'lucide-react';
 import { apiClient, RotationConfig, Session } from '@/lib/api';
 
 export default function RotationPage() {
@@ -87,7 +86,7 @@ export default function RotationPage() {
     };
 
     if (loading) {
-        return <div className="p-8 text-center">Loading rotation settings...</div>;
+        return <div className="p-8 text-center flex justify-center"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
     }
 
     return (
@@ -102,7 +101,6 @@ export default function RotationPage() {
                 <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <Shield className="h-5 w-5 text-purple-400" />
                             Rotation Strategy
                         </CardTitle>
                         <CardDescription>Configure how and when your IP address changes</CardDescription>
@@ -138,7 +136,6 @@ export default function RotationPage() {
                 <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <Globe className="h-5 w-5 text-emerald-400" />
                             Geographic Targeting
                         </CardTitle>
                         <CardDescription>Target specific locations for your exit node</CardDescription>
@@ -187,7 +184,7 @@ export default function RotationPage() {
             <Card className="border-white/10 bg-gradient-to-br from-black/40 to-purple-900/10 backdrop-blur-xl">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <RefreshCw className={`h-5 w-5 text-blue-400 ${rotating ? 'animate-spin' : ''}`} />
+                        {rotating && <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />}
                         Current Session
                     </CardTitle>
                     <CardDescription>Live status of your current proxy session</CardDescription>
@@ -196,28 +193,28 @@ export default function RotationPage() {
                     <div className="grid gap-4 md:grid-cols-4">
                         <div className="p-4 rounded-lg bg-white/5 border border-white/10">
                             <div className="text-sm text-gray-400 mb-1">Session ID</div>
-                            <div className="font-mono font-medium text-lg truncate" title={session?.ID}>
-                                {session?.ID || 'No Active Session'}
+                            <div className="font-mono font-medium text-lg truncate" title={session?.id}>
+                                {session?.id || 'No Active Session'}
                             </div>
                         </div>
                         <div className="p-4 rounded-lg bg-white/5 border border-white/10">
                             <div className="text-sm text-gray-400 mb-1">IP Location</div>
                             <div className="font-medium text-lg flex items-center gap-2">
-                                <MapPin className="h-4 w-4 text-red-400" />
-                                {session?.Location || 'Auto / Random'}
+                                <span className="text-xs font-bold text-red-400 bg-red-400/10 px-1 rounded">LOC</span>
+                                {session?.location || 'Auto / Random'}
                             </div>
                         </div>
                         <div className="p-4 rounded-lg bg-white/5 border border-white/10">
                             <div className="text-sm text-gray-400 mb-1">Created At</div>
                             <div className="font-medium text-lg">
-                                {session?.CreatedAt ? new Date(session.CreatedAt).toLocaleTimeString() : '-'}
+                                {session?.created_at ? new Date(session.created_at).toLocaleTimeString() : '-'}
                             </div>
                         </div>
                         <div className="p-4 rounded-lg bg-white/5 border border-white/10">
                             <div className="text-sm text-gray-400 mb-1">Expires In</div>
                             <div className="font-medium text-lg flex items-center gap-2">
-                                <Clock className="h-4 w-4 text-orange-400" />
-                                {session?.Duration ? `${Math.ceil((new Date(session.ExpiresAt).getTime() - Date.now()) / 60000)} min` : 'N/A'}
+                                <span className="text-xs font-bold text-orange-400 bg-orange-400/10 px-1 rounded">TIME</span>
+                                {session?.expires_at ? `${Math.ceil((new Date(session.expires_at).getTime() - Date.now()) / 60000)} min` : 'N/A'}
                             </div>
                         </div>
                     </div>
@@ -228,8 +225,12 @@ export default function RotationPage() {
                             disabled={rotating}
                             className="bg-blue-600 hover:bg-blue-700 text-white min-w-[200px]"
                         >
-                            <RefreshCw className={`mr-2 h-4 w-4 ${rotating ? 'animate-spin' : ''}`} />
-                            {rotating ? 'Rotating IP...' : 'Rotate IP Now'}
+                            {rotating ? (
+                                <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    <span>Rotating IP...</span>
+                                </div>
+                            ) : 'Rotate IP Now'}
                         </Button>
                     </div>
                 </CardContent>

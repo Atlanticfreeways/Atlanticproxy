@@ -12,7 +12,7 @@ import (
 
 func main() {
 	if os.Getuid() != 0 {
-		log.Fatal("AtlanticProxy Service must be run as root (sudo) to configure network interfaces.")
+		log.Println("WARNING: AtlanticProxy Service is running without root privileges. Network interface configuration (TUN) will be skipped.")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

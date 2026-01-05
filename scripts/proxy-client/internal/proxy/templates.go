@@ -37,8 +37,8 @@ const blockedPageTemplate = `
 </html>
 `
 
-func NewBlockedResponse(req *http.Request, title, icon, message, buttonText string) *http.Response {
+func NewBlockedResponse(req *http.Request, title, icon, message, buttonText string, statusCode int) *http.Response {
 	html := fmt.Sprintf(blockedPageTemplate, title, icon, title, message, buttonText)
-	resp := goproxy.NewResponse(req, "text/html", http.StatusForbidden, html)
+	resp := goproxy.NewResponse(req, "text/html", statusCode, html)
 	return resp
 }

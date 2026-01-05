@@ -17,22 +17,31 @@ mkdir -p "${MACOS_DIR}"
 mkdir -p "${RESOURCES_DIR}"
 
 echo "🔨 Building Binaries..."
-# Navigate to Go project root
-cd scripts/proxy-client
+# Detect Architecture
+ARCH=$(uname -m)
+if [ "$ARCH" == "x86_64" ]; then
+    GOARCH="amd64"
+else
+    GOARCH="arm64"
+fi
+echo "   - Targeting architecture: ${GOARCH}"
 
-# Build Main App (Tray)
+# Build Main App (Tray) - located in root
 echo "   - Building Main App (Tray)..."
-GOOS=darwin GOARCH=amd64 go build -o "../../${MACOS_DIR}/${APP_NAME}" ./cmd/tray
+GOOS=darwin GOARCH=${GOARCH} go build -o "${MACOS_DIR}/${APP_NAME}" ./cmd/tray
 
-# Build Service (Helper)
+# Build Service (Helper) - located in scripts/proxy-client
 echo "   - Building Service Helper..."
-GOOS=darwin GOARCH=amd64 go build -o "../../${MACOS_DIR}/AtlanticService" ./cmd/service
-
-# Return to root
+cd scripts/proxy-client
+GOOS=darwin GOARCH=${GOARCH} go build -o "../../${MACOS_DIR}/AtlanticService" ./cmd/service
 cd ../..
 
 echo "📄 Copying Resources..."
-cp packaging/macos/Info.plist "${CONTENTS_DIR}/"
+if [ -f "packaging/macos/Info.plist" ]; then
+    cp packaging/macos/Info.plist "${CONTENTS_DIR}/"
+else
+    echo "⚠️ Warning: Info.plist not found, skipping copy"
+fi
 # Placeholder for Icon copy
 # cp packaging/macos/AppIcon.icns "${RESOURCES_DIR}/"
 

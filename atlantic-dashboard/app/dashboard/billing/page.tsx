@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiClient, Plan, Subscription } from '@/lib/api';
-import { Loader2, Check, CreditCard, Shield, Zap, Lock, Globe } from 'lucide-react';
+import { CurrencyDollar } from '@phosphor-icons/react';
 import { useRouter } from 'next/navigation';
 
 export default function BillingPage() {
@@ -16,7 +16,7 @@ export default function BillingPage() {
     const [processing, setProcessing] = useState<string | null>(null); // PlanID being purchased
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
-    const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'crypto'>('paystack');
+    const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'crypto' | 'test_mode'>('paystack');
 
     // Crypto checkout details
     const [cryptoDetails, setCryptoDetails] = useState<{ address: string, amount: string, currency: string } | null>(null);
@@ -62,10 +62,20 @@ export default function BillingPage() {
             const email = user.email || 'user@example.com';
             console.log('Using email for checkout:', email);
 
+            if (paymentMethod === 'test_mode') {
+                // Direct Subscribe (Simulate Success)
+                await apiClient.subscribe(selectedPlan.id);
+                alert('Test Payment Successful! Subscription Upgraded.');
+                setShowPaymentModal(false);
+                setProcessing(null);
+                loadData(); // Refresh UI
+                return;
+            }
+
             const response = await apiClient.createCheckoutSession({
                 plan_id: selectedPlan.id,
                 email: email,
-                method: paymentMethod,
+                method: paymentMethod as 'paystack' | 'crypto', // cast safely as we handled test_mode above
                 currency: paymentMethod === 'paystack' ? 'USD' : 'btc' // Default currencies
             });
             console.log('Checkout response:', response);
@@ -93,7 +103,7 @@ export default function BillingPage() {
     if (!mounted || loading) {
         return (
             <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+                <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
             </div>
         );
     }
@@ -109,7 +119,10 @@ export default function BillingPage() {
             <div className="glass p-6 rounded-2xl border border-white/5 bg-gradient-to-br from-zinc-900 to-black">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <div className="text-sm font-medium text-purple-400 mb-1">CURRENT PLAN</div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <CurrencyDollar className="w-4 h-4 text-purple-400" />
+                            <div className="text-sm font-medium text-purple-400">CURRENT PLAN</div>
+                        </div>
                         <div className="text-2xl font-bold text-white capitalize flex items-center gap-2">
                             {subscription?.plan_id || 'Free'} Plan
                             <span className={`px-2 py-0.5 rounded-full text-xs ${subscription?.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
@@ -145,16 +158,16 @@ export default function BillingPage() {
                         <div className="space-y-3 mb-8 min-h-[120px]">
                             {/* Feature List */}
                             <div className="flex items-center gap-2 text-sm text-zinc-300">
-                                <Check className="w-4 h-4 text-green-500" />
+                                <span className="text-green-500 font-bold">✓</span>
                                 <span>{plan.data_limit_mb > 0 ? (plan.data_limit_mb >= 1024 ? `${plan.data_limit_mb / 1024} GB` : `${plan.data_limit_mb} MB`) : 'Unlimited'} Bandwidth</span>
                             </div>
                             <div className="flex items-center gap-2 text-sm text-zinc-300">
-                                <Check className="w-4 h-4 text-green-500" />
+                                <span className="text-green-500 font-bold">✓</span>
                                 <span>{plan.concurrent_conns} Concurrent Connections</span>
                             </div>
                             {plan.features?.map((f, i) => (
                                 <div key={i} className="flex items-center gap-2 text-sm text-zinc-300">
-                                    <Check className="w-4 h-4 text-green-500" />
+                                    <span className="text-green-500 font-bold">✓</span>
                                     <span>{f}</span>
                                 </div>
                             ))}
@@ -188,7 +201,7 @@ export default function BillingPage() {
                                 className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'paystack' ? 'border-purple-500 bg-purple-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}
                             >
                                 <div className="flex items-center gap-3">
-                                    <CreditCard className="w-5 h-5 text-purple-400" />
+                                    <div className="font-mono text-purple-400 font-bold text-xs bg-purple-500/10 px-2 py-1 rounded">CARD</div>
                                     <div>
                                         <div className="text-white font-medium">Credit / Debit Card</div>
                                         <div className="text-xs text-zinc-500">Secured by Paystack</div>
@@ -202,13 +215,28 @@ export default function BillingPage() {
                                 className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'crypto' ? 'border-orange-500 bg-orange-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}
                             >
                                 <div className="flex items-center gap-3">
-                                    <Lock className="w-5 h-5 text-orange-400" />
+                                    <div className="font-mono text-orange-400 font-bold text-xs bg-orange-500/10 px-2 py-1 rounded">CRYPTO</div>
                                     <div>
                                         <div className="text-white font-medium">Crypto (BTC, ETH, SOL)</div>
                                         <div className="text-xs text-zinc-500">Direct Transfer</div>
                                     </div>
                                 </div>
                                 {paymentMethod === 'crypto' && <div className="w-4 h-4 rounded-full bg-orange-500 border-2 border-black"></div>}
+                            </div>
+
+                            {/* Test Payment (Dev Only) */}
+                            <div
+                                onClick={() => setPaymentMethod('test_mode')}
+                                className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'test_mode' ? 'border-blue-500 bg-blue-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="font-mono text-blue-400 font-bold text-xs bg-blue-500/10 px-2 py-1 rounded">TEST</div>
+                                    <div>
+                                        <div className="text-white font-medium">Test Payment</div>
+                                        <div className="text-xs text-zinc-500">Simulate Success</div>
+                                    </div>
+                                </div>
+                                {paymentMethod === 'test_mode' && <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-black"></div>}
                             </div>
                         </div>
 
@@ -217,10 +245,9 @@ export default function BillingPage() {
                             disabled={!!processing}
                             className="w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
                         >
-                            {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                            {processing ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (
                                 <>
                                     Pay ${selectedPlan.price_monthly}
-                                    <Zap className="w-4 h-4" />
                                 </>
                             )}
                         </button>
@@ -238,8 +265,10 @@ export default function BillingPage() {
                             {/* QR Code Placeholder */}
                             <div className="w-full h-full bg-black text-white flex items-center justify-center text-xs text-center p-4">
                                 <div className="space-y-2">
-                                    <Globe className="w-8 h-8 mx-auto text-purple-500 animate-pulse" />
-                                    <div className="font-mono">{cryptoDetails.currency.toUpperCase()} QR</div>
+                                    <div className="space-y-2">
+                                        <div className="text-2xl font-bold text-purple-500">QR</div>
+                                        <div className="font-mono">{cryptoDetails.currency.toUpperCase()} QR</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

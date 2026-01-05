@@ -1,0 +1,34 @@
+# github.com/atlanticproxy/proxy-client/cmd/api-only
+cmd/api-only/main.go:29:25: not enough arguments in call to server.Start
+	have ("context".Context)
+	want ("context".Context, string)
+# github.com/atlanticproxy/proxy-client/cmd/manual-tests
+cmd/manual-tests/validate_auth.go:33:6: main redeclared in this block
+	cmd/manual-tests/test_rotation_full.go:25:6: other declaration of main
+cmd/manual-tests/validate_rotation.go:12:6: main redeclared in this block
+	cmd/manual-tests/test_rotation_full.go:25:6: other declaration of main
+FAIL	github.com/atlanticproxy/proxy-client/cmd/api-only [build failed]
+?   	github.com/atlanticproxy/proxy-client/cmd/atlantic-test	[no test files]
+?   	github.com/atlanticproxy/proxy-client/cmd/killswitch-test	[no test files]
+FAIL	github.com/atlanticproxy/proxy-client/cmd/manual-tests [build failed]
+?   	github.com/atlanticproxy/proxy-client/cmd/service	[no test files]
+?   	github.com/atlanticproxy/proxy-client/cmd/tray	[no test files]
+ok  	github.com/atlanticproxy/proxy-client/internal/adblock	(cached)
+?   	github.com/atlanticproxy/proxy-client/internal/api	[no test files]
+ok  	github.com/atlanticproxy/proxy-client/internal/atlantic	(cached)
+ok  	github.com/atlanticproxy/proxy-client/internal/billing	(cached)
+ok  	github.com/atlanticproxy/proxy-client/internal/failover	(cached)
+ok  	github.com/atlanticproxy/proxy-client/internal/interceptor	(cached)
+ok  	github.com/atlanticproxy/proxy-client/internal/killswitch	(cached)
+ok  	github.com/atlanticproxy/proxy-client/internal/monitor	(cached)
+ok  	github.com/atlanticproxy/proxy-client/internal/pool	(cached)
+ok  	github.com/atlanticproxy/proxy-client/internal/proxy	(cached)
+ok  	github.com/atlanticproxy/proxy-client/internal/rotation	(cached)
+ok  	github.com/atlanticproxy/proxy-client/internal/service	(cached)
+ok  	github.com/atlanticproxy/proxy-client/internal/storage	(cached)
+ok  	github.com/atlanticproxy/proxy-client/internal/validator	(cached)
+?   	github.com/atlanticproxy/proxy-client/pkg/cert	[no test files]
+?   	github.com/atlanticproxy/proxy-client/pkg/config	[no test files]
+?   	github.com/atlanticproxy/proxy-client/pkg/geo	[no test files]
+ok  	github.com/atlanticproxy/proxy-client/pkg/oxylabs	(cached)
+FAIL

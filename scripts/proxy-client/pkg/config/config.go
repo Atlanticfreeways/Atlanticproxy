@@ -7,6 +7,7 @@ import (
 	"github.com/atlanticproxy/proxy-client/internal/killswitch"
 	"github.com/atlanticproxy/proxy-client/internal/monitor"
 	"github.com/atlanticproxy/proxy-client/internal/proxy"
+	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v3"
 )
 
@@ -28,6 +29,9 @@ type BillingConfig struct {
 }
 
 func Load() *Config {
+	// Load .env file if it exists
+	_ = godotenv.Load()
+
 	config := &Config{
 		Interceptor: &interceptor.Config{
 			InterfaceName: "utun9",
@@ -37,6 +41,9 @@ func Load() *Config {
 		Proxy: &proxy.Config{
 			OxylabsUsername: getEnv("OXYLABS_USERNAME", ""),
 			OxylabsPassword: getEnv("OXYLABS_PASSWORD", ""),
+			OxylabsAPIKey:   getEnv("OXYLABS_API_KEY", ""),
+			PiaAPIKey:       getEnv("PIA_API_KEY", ""),
+			ProviderType:    getEnv("PROVIDER_TYPE", "auto"),
 			ListenAddr:      "127.0.0.1:8080",
 			HealthCheckURL:  "https://httpbin.org/ip",
 		},

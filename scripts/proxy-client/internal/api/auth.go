@@ -72,6 +72,12 @@ func (s *Server) handleRegister(c *gin.Context) {
 		return
 	}
 
+	// Set as active user for billing/proxy context
+	// In a real multi-user server, we wouldn't do this globally, but for a local desktop app verify flow, this is correct.
+	if s.billingManager != nil {
+		s.billingManager.SetActiveUser(user.ID)
+	}
+
 	c.JSON(http.StatusCreated, AuthResponse{
 		Token: session.Token,
 		User:  user,
@@ -81,7 +87,11 @@ func (s *Server) handleRegister(c *gin.Context) {
 func (s *Server) handleLogin(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if req.Email == "" || req.Password == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Please enter both email and password"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email format"})
+		}
 		return
 	}
 
@@ -109,6 +119,11 @@ func (s *Server) handleLogin(c *gin.Context) {
 	if err := s.store.CreateSession(session.ID, session.UserID, session.Token, session.ExpiresAt); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
 		return
+	}
+
+	// Set as active user for billing/proxy context
+	if s.billingManager != nil {
+		s.billingManager.SetActiveUser(user.ID)
 	}
 
 	c.JSON(http.StatusOK, AuthResponse{

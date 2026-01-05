@@ -1,23 +1,42 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { StatusCard } from '@/components/dashboard/StatusCard';
 import { apiClient, ProxyStatus } from '@/lib/api';
-import { WorldMap } from '@/components/dashboard/WorldMap';
-import { ShieldCheck, Globe, Timer, ArrowsDownUp } from '@phosphor-icons/react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { motion } from 'framer-motion';
+import { ConnectionCard } from './components/ConnectionCard';
+import { UsageStatsCard } from './components/UsageStatsCard';
+import { QuickActionsCard } from './components/QuickActionsCard';
+import { RecentActivityCard, ActivityItem } from './components/RecentActivityCard';
+import { SecurityCard } from './components/SecurityCard';
+import { ProtocolModal } from './components/ProtocolModal';
+import { RotationSettingsModal } from './components/RotationSettingsModal';
+import { AdblockSettingsModal } from './components/AdblockSettingsModal';
+import { SecurityStatus } from '@/lib/api';
 
 export default function DashboardPage() {
     const [status, setStatus] = useState<ProxyStatus | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isRotating, setIsRotating] = useState(false);
+    const [securityStatus, setSecurityStatus] = useState<SecurityStatus | null>(null);
+    const [showProtocols, setShowProtocols] = useState(false);
+    const [showRotationSettings, setShowRotationSettings] = useState(false);
+    const [showAdblockSettings, setShowAdblockSettings] = useState(false);
+
+    // Mock data for phase 1 integration
+    const [usage, setUsage] = useState({ used: 2.3, total: 5 });
+    const [activities, setActivities] = useState<ActivityItem[]>([
+        { id: '1', type: 'connection', description: 'Connected from US (New York)', timestamp: new Date(Date.now() - 1000 * 60 * 2).toISOString() },
+        { id: '2', type: 'rotation', description: 'IP Rotated automatically', timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString() }
+    ]);
 
     useEffect(() => {
         const fetchStatus = async () => {
             try {
-                const data = await apiClient.getStatus();
-                setStatus(data);
+                const [statusData, securityData] = await Promise.all([
+                    apiClient.getStatus(),
+                    apiClient.getSecurityStatus()
+                ]);
+                setStatus(statusData);
+                setSecurityStatus(securityData);
             } catch (error) {
                 console.error('Failed to fetch status:', error);
             } finally {
@@ -27,7 +46,6 @@ export default function DashboardPage() {
 
         fetchStatus();
 
-        // Subscribe to real-time updates
         const unsubscribe = apiClient.subscribeToStatus((data) => {
             setStatus(data);
         });
@@ -35,156 +53,90 @@ export default function DashboardPage() {
         return () => unsubscribe();
     }, []);
 
+    const handleToggleConnection = async () => {
+        setLoading(true);
+        try {
+            if (status?.connected) {
+                await apiClient.disconnect();
+            } else {
+                await apiClient.connect("test_user"); // Endpoint fallback for now
+            }
+            // Status will be updated via WebSocket subscriber or next poll
+        } catch (error) {
+            console.error('Connection toggle failed:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    // Mock performance data
-    const performanceData = [
-        { time: '00:00', latency: 45 },
-        { time: '00:05', latency: 42 },
-        { time: '00:10', latency: 48 },
-        { time: '00:15', latency: 44 },
-        { time: '00:20', latency: 46 },
-        { time: '00:25', latency: 43 },
-    ];
+    const handleRotateIP = async () => {
+        setIsRotating(true);
+        try {
+            await apiClient.rotateIP();
+            // Status will update via WS
+        } catch (error) {
+            console.error('Rotation failed:', error);
+        } finally {
+            setIsRotating(false);
+        }
+    };
+
+    const handleUpgrade = () => {
+        console.log("Navigate to billing");
+    };
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-[80vh]">
-                <div className="relative">
-                    <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
-                    <div className="mt-4 text-neutral-500 text-sm font-medium">Syncing nodes...</div>
-                </div>
+            <div className="flex items-center justify-center h-[80vh] bg-background text-foreground">
+                <div className="animate-pulse">Loading dashboard...</div>
             </div>
-        );
+        )
     }
 
     return (
-        <div className="space-y-8 pb-12">
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col md:flex-row md:items-end justify-between gap-4"
-            >
-                <div>
-                    <h1 className="text-4xl font-extrabold text-white tracking-tight mb-2">Atlantic Dashboard</h1>
-                    <p className="text-neutral-400 font-medium">Oceanic scale residential proxy network</p>
+        <div className="space-y-6 pb-12 p-4 md:p-8 pt-6">
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <ConnectionCard
+                    isConnected={status?.connected || false}
+                    ipAddress={status?.ip_address}
+                    location={status?.location}
+                    isp={status?.isp}
+                    latency={status?.latency}
+                    protectionLevel={status?.protection_level}
+                    onToggleConnection={handleToggleConnection}
+                    onRotateIP={handleRotateIP}
+                    isRotating={isRotating}
+                />
+
+                <div className="space-y-6">
+                    <UsageStatsCard
+                        used={usage.used}
+                        total={usage.total}
+                        onUpgrade={handleUpgrade}
+                    />
+                    <SecurityCard
+                        score={securityStatus?.anonymity_score || 0}
+                        isIpLeak={securityStatus?.ip_leak_detected || false}
+                        isDnsLeak={securityStatus?.dns_leak_detected || false}
+                        message={securityStatus?.message || "Checking security..."}
+                    />
+                    <QuickActionsCard
+                        onChangeLocation={() => setShowRotationSettings(true)}
+                        onRotationSettings={() => setShowRotationSettings(true)}
+                        onViewActivity={() => console.log("View activity")}
+                        onViewProtocols={() => setShowProtocols(true)}
+                        onAdblockSettings={() => setShowAdblockSettings(true)}
+                    />
                 </div>
-                <div className="flex gap-2 text-xs font-mono bg-neutral-900 border border-neutral-800 p-2 rounded-lg">
-                    <span className="text-neutral-500">BUILD:</span>
-                    <span className="text-blue-500">PROD-1.0.0-RC</span>
-                </div>
-            </motion.div>
 
-            {/* Geographic Visualization */}
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.1 }}
-            >
-                <WorldMap
-                    lat={status?.lat}
-                    lon={status?.lon}
-                    connected={status?.connected || false}
-                />
-            </motion.div>
-
-            {/* Status Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatusCard
-                    icon={<ShieldCheck size={24} />}
-                    title="Connection"
-                    value={status?.connected ? 'Connected' : 'Disconnected'}
-                    status={status?.connected ? 'success' : 'error'}
-                />
-                <StatusCard
-                    icon={<Globe size={24} />}
-                    title="Location"
-                    value={status?.location || 'Unknown'}
-                    subtitle={status?.ip_address || 'No IP'}
-                />
-
-                <StatusCard
-                    icon={<Timer size={24} />}
-                    title="Latency"
-                    value={`${status?.latency || 0}ms`}
-                    status={status && (status.latency || 0) < 100 ? 'success' : 'warning'}
-                />
-                <StatusCard
-                    icon={<ArrowsDownUp size={24} />}
-                    title="Data Transferred"
-                    value="2.4 GB"
-                    subtitle="This session"
-                />
-                <StatusCard
-                    icon={<Globe size={24} />}
-                    title="SOCKS5 Proxy"
-                    value="127.0.0.1:1080"
-                    status="success"
-                    subtitle="Active & Encrypted"
-                />
-                <StatusCard
-                    icon={<ShieldCheck size={24} />}
-                    title="Shadowsocks"
-                    value="127.0.0.1:8388"
-                    status="success"
-                    subtitle="Premium AEAD Active"
-                />
+                <RecentActivityCard activities={activities} />
             </div>
 
-            {/* Performance Chart */}
-            <Card className="bg-neutral-900 border-neutral-800">
-                <CardHeader>
-                    <CardTitle className="text-white">Performance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={performanceData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
-                            <XAxis dataKey="time" stroke="#a3a3a3" />
-                            <YAxis stroke="#a3a3a3" />
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: '#171717',
-                                    border: '1px solid #404040',
-                                    borderRadius: '8px',
-                                }}
-                            />
-                            <Line type="monotone" dataKey="latency" stroke="#3b82f6" strokeWidth={2} />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card className="bg-neutral-900 border-neutral-800">
-                <CardHeader>
-                    <CardTitle className="text-white">Recent Activity</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between py-2 border-b border-neutral-800">
-                            <div>
-                                <p className="text-white font-medium">Connected to US East</p>
-                                <p className="text-sm text-neutral-400">2 minutes ago</p>
-                            </div>
-                            <div className="text-green-500">✓</div>
-                        </div>
-                        <div className="flex items-center justify-between py-2 border-b border-neutral-800">
-                            <div>
-                                <p className="text-white font-medium">Kill switch activated</p>
-                                <p className="text-sm text-neutral-400">15 minutes ago</p>
-                            </div>
-                            <div className="text-blue-500">🛡️</div>
-                        </div>
-                        <div className="flex items-center justify-between py-2">
-                            <div>
-                                <p className="text-white font-medium">Leak test passed</p>
-                                <p className="text-sm text-neutral-400">1 hour ago</p>
-                            </div>
-                            <div className="text-green-500">✓</div>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+            <ProtocolModal isOpen={showProtocols} onOpenChange={setShowProtocols} />
+            <RotationSettingsModal isOpen={showRotationSettings} onOpenChange={setShowRotationSettings} />
+            <AdblockSettingsModal isOpen={showAdblockSettings} onOpenChange={setShowAdblockSettings} />
         </div>
     );
 }

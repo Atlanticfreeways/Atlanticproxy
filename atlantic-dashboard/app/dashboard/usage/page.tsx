@@ -45,8 +45,8 @@ export default function UsagePage() {
 
     // Derived values
     const dataUsed = usage?.data_transferred_bytes || 0;
-    const dataLimit = (plan?.DataLimitMB || 0) * 1024 * 1024;
-    const dataPourcentage = plan?.DataLimitMB === -1 ? 0 : (dataUsed / dataLimit) * 100;
+    const dataLimit = (plan?.data_limit_mb || 0) * 1024 * 1024;
+    const dataPourcentage = plan?.data_limit_mb === -1 ? 0 : (dataUsed / dataLimit) * 100;
 
     // Mock daily usage for the chart (since backend only gives current month total for now)
     const dailyData = [
@@ -69,13 +69,13 @@ export default function UsagePage() {
                     <CardHeader>
                         <CardTitle className="text-white">Data Usage</CardTitle>
                         <CardDescription>
-                            {formatBytes(dataUsed)} used of {plan?.DataLimitMB === -1 ? 'Unlimited' : formatBytes(dataLimit)}
+                            {formatBytes(dataUsed)} used of {plan?.data_limit_mb === -1 ? 'Unlimited' : formatBytes(dataLimit)}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Progress value={dataPourcentage} className="h-4 bg-neutral-800" indicatorClassName={dataPourcentage > 90 ? 'bg-red-500' : 'bg-blue-600'} />
                         <p className="text-sm text-neutral-400 mt-2 text-right">
-                            {plan?.DataLimitMB === -1 ? 'Unlimited' : `${dataPourcentage.toFixed(1)}% Used`}
+                            {plan?.data_limit_mb === -1 ? 'Unlimited' : `${dataPourcentage.toFixed(1)}% Used`}
                         </p>
                     </CardContent>
                 </Card>

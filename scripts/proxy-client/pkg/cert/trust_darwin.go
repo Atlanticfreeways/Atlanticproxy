@@ -22,6 +22,10 @@ func TrustCA() error {
 		return fmt.Errorf("CA certificate not found at %s", certPath)
 	}
 
+	if os.Geteuid() != 0 {
+		return fmt.Errorf("not running as root, skipping CA trust")
+	}
+
 	fmt.Printf("Trusting AtlanticProxy Root CA on macOS...\n")
 
 	// Use security command to add to system keychain and trust

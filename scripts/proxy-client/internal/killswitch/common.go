@@ -22,3 +22,8 @@ func New(config *Config) *Guardian {
 		config: config,
 	}
 }
+
+// IsEnabled returns whether the kill switch is currently active
+func (g *Guardian) IsEnabled() bool {
+	return g.enabled
+}

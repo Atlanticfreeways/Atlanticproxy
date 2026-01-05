@@ -8,6 +8,7 @@ import (
 	"github.com/armon/go-socks5"
 	"github.com/atlanticproxy/proxy-client/internal/billing"
 	"github.com/atlanticproxy/proxy-client/pkg/oxylabs"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/proxy"
 )
 
@@ -16,6 +17,7 @@ type Socks5Server struct {
 	listenAddr     string
 	oxylabs        *oxylabs.Client
 	billingManager *billing.Manager
+	logger         *logrus.Logger
 }
 
 func NewSocks5Server(listenAddr string, ox *oxylabs.Client, bm *billing.Manager) (*Socks5Server, error) {
@@ -23,6 +25,7 @@ func NewSocks5Server(listenAddr string, ox *oxylabs.Client, bm *billing.Manager)
 		listenAddr:     listenAddr,
 		oxylabs:        ox,
 		billingManager: bm,
+		logger:         logrus.StandardLogger(),
 	}
 
 	conf := &socks5.Config{

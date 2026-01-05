@@ -120,12 +120,17 @@ func TestSubscriptionCRUD(t *testing.T) {
 	defer store.Close()
 
 	// Initial check - should be nil
-	sub, err := store.GetSubscription()
+	sub, err := store.GetSubscription("default")
 	if err != nil {
 		t.Errorf("GetSubscription failed: %v", err)
 	}
 	if sub != nil {
 		t.Errorf("Expected nil subscription, got %v", sub)
+	}
+
+	// Create user for FK constraint
+	if err := store.CreateUser("default", "test@example.com", "hash"); err != nil {
+		t.Fatalf("Failed to create user: %v", err)
 	}
 
 	// Create subscription
@@ -140,7 +145,7 @@ func TestSubscriptionCRUD(t *testing.T) {
 	}
 
 	// Fetch back
-	sub, err = store.GetSubscription()
+	sub, err = store.GetSubscription("default")
 	if err != nil {
 		t.Errorf("Failed to get subscription: %v", err)
 	}
@@ -166,13 +171,19 @@ func TestUsageTracking(t *testing.T) {
 	}
 	defer store.Close()
 
+	// Create user for FK constraint
+	userID := "user123"
+	if err := store.CreateUser(userID, "test@example.com", "hash"); err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
 	// Update usage
-	err = store.UpdateUsage(1000, 10, 5, 1)
+	err = store.UpdateUsage(userID, 1000, 10, 5, 1)
 	if err != nil {
 		t.Fatalf("Failed to update usage: %v", err)
 	}
 
-	data, reqs, ads, threats, err := store.GetLatestUsage()
+	data, reqs, ads, threats, err := store.GetLatestUsage(userID)
 	if err != nil {
 		t.Fatalf("Failed to get usage: %v", err)
 	}
@@ -182,12 +193,12 @@ func TestUsageTracking(t *testing.T) {
 	}
 
 	// Accumulate usage
-	err = store.UpdateUsage(500, 5, 1, 0)
+	err = store.UpdateUsage(userID, 500, 5, 1, 0)
 	if err != nil {
 		t.Fatalf("Failed to accumulate usage: %v", err)
 	}
 
-	data, reqs, ads, threats, err = store.GetLatestUsage()
+	data, reqs, ads, threats, err = store.GetLatestUsage(userID)
 	if err != nil {
 		t.Fatalf("Failed to get accumulated usage: %v", err)
 	}
@@ -275,8 +286,8 @@ func TestUserAndSession(t *testing.T) {
 	}
 
 	sess, err = store.GetSession(token)
-	if err != nil {
-		t.Fatalf("Failed to check deleted session: %v", err)
+	if err == nil {
+		t.Errorf("Expected error getting deleted session, got nil")
 	}
 	if sess != nil {
 		t.Errorf("Expected session to be nil after deletion, got %v", sess)

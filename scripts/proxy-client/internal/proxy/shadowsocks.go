@@ -7,17 +7,27 @@ import (
 	"net"
 	"time"
 
+	"sync"
+
 	"github.com/atlanticproxy/proxy-client/internal/billing"
 	"github.com/atlanticproxy/proxy-client/pkg/oxylabs"
 	"github.com/shadowsocks/go-shadowsocks2/core"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/proxy"
 )
+
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 32*1024)
+	},
+}
 
 type ShadowsocksServer struct {
 	listenAddr     string
 	cipher         core.Cipher
 	oxylabs        *oxylabs.Client
 	billingManager *billing.Manager
+	logger         *logrus.Logger
 }
 
 func NewShadowsocksServer(listenAddr, method, password string, ox *oxylabs.Client, bm *billing.Manager) (*ShadowsocksServer, error) {
@@ -31,6 +41,7 @@ func NewShadowsocksServer(listenAddr, method, password string, ox *oxylabs.Clien
 		cipher:         cipher,
 		oxylabs:        ox,
 		billingManager: bm,
+		logger:         logrus.StandardLogger(),
 	}, nil
 }
 
@@ -41,7 +52,7 @@ func (s *ShadowsocksServer) Start(ctx context.Context) error {
 	}
 	defer l.Close()
 
-	fmt.Printf("Starting Shadowsocks server on %s (Premium Only)...\n", s.listenAddr)
+	s.logger.Infof("Starting Shadowsocks server on %s (Premium Only)...", s.listenAddr)
 
 	go func() {
 		<-ctx.Done()
@@ -55,7 +66,7 @@ func (s *ShadowsocksServer) Start(ctx context.Context) error {
 			case <-ctx.Done():
 				return nil
 			default:
-				fmt.Printf("Shadowsocks accept error: %v\n", err)
+				s.logger.Errorf("Shadowsocks accept error: %v", err)
 				continue
 			}
 		}
@@ -81,13 +92,14 @@ func (s *ShadowsocksServer) handleConnection(conn net.Conn) {
 		plan, _ := billing.GetPlan(sub.PlanID)
 
 		// Logic: Shadowsocks is only for Pro and above
+		// Logic: Shadowsocks is only for Pro and above
 		if plan.ID != billing.PlanPersonal && plan.ID != billing.PlanTeam && plan.ID != billing.PlanEnterprise {
-			fmt.Println("Shadowsocks access denied: Premium plan required")
+			s.logger.Warn("Shadowsocks access denied: Premium plan required")
 			return
 		}
 
 		if err := s.billingManager.CanAcceptConnection(); err != nil {
-			fmt.Printf("Shadowsocks quota check failed: %v\n", err)
+			s.logger.Warnf("Shadowsocks quota check failed: %v", err)
 			return
 		}
 		s.billingManager.Usage.AddRequest()
@@ -119,21 +131,23 @@ func (s *ShadowsocksServer) handleConnection(conn net.Conn) {
 
 	upstream, err := s.dialUpstream(target)
 	if err != nil {
-		fmt.Printf("Failed to dial upstream for %s: %v\n", target, err)
+		s.logger.Errorf("Failed to dial upstream for %s: %v", target, err)
 		return
 	}
 	defer upstream.Close()
 
-	// Relay
+	// Relay with Pooled Buffers
 	errChan := make(chan error, 2)
-	go func() {
-		_, err := io.Copy(upstream, ssConn)
+
+	relay := func(dst io.Writer, src io.Reader) {
+		buf := bufPool.Get().([]byte)
+		defer bufPool.Put(buf)
+		_, err := io.CopyBuffer(dst, src, buf)
 		errChan <- err
-	}()
-	go func() {
-		_, err := io.Copy(ssConn, upstream)
-		errChan <- err
-	}()
+	}
+
+	go relay(upstream, ssConn)
+	go relay(ssConn, upstream)
 
 	<-errChan
 }

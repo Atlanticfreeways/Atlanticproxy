@@ -19,22 +19,24 @@ type Store interface {
 }
 
 type BlocklistManager struct {
-	blockedDomains map[string]string // domain -> category
-	whitelist      map[string]bool
-	customRules    map[string]bool
-	lastUpdated    time.Time
-	stats          map[string]int64
-	store          Store
-	mu             sync.RWMutex
+	blockedDomains     map[string]string // domain -> category
+	whitelist          map[string]bool
+	customRules        map[string]bool
+	disabledCategories map[string]bool
+	lastUpdated        time.Time
+	stats              map[string]int64
+	store              Store
+	mu                 sync.RWMutex
 }
 
 func NewBlocklistManager(store Store) *BlocklistManager {
 	m := &BlocklistManager{
-		blockedDomains: make(map[string]string),
-		whitelist:      make(map[string]bool),
-		customRules:    make(map[string]bool),
-		stats:          make(map[string]int64),
-		store:          store,
+		blockedDomains:     make(map[string]string),
+		whitelist:          make(map[string]bool),
+		customRules:        make(map[string]bool),
+		disabledCategories: make(map[string]bool),
+		stats:              make(map[string]int64),
+		store:              store,
 	}
 
 	if store != nil {
@@ -112,14 +114,14 @@ func (m *BlocklistManager) GetCustomRules() []string {
 func (m *BlocklistManager) SetCustomRules(rules []string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	// Clear existing custom rules from blockedDomains
 	for r := range m.customRules {
 		if m.blockedDomains[r] == "custom" {
 			delete(m.blockedDomains, r)
 		}
 	}
-	
+
 	m.customRules = make(map[string]bool)
 	var persistedRules []string
 	for _, r := range rules {
@@ -134,6 +136,31 @@ func (m *BlocklistManager) SetCustomRules(rules []string) {
 	}
 }
 
+func (m *BlocklistManager) ToggleCategory(category string, enabled bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if enabled {
+		delete(m.disabledCategories, category)
+	} else {
+		m.disabledCategories[category] = true
+	}
+}
+
+func (m *BlocklistManager) IsCategoryEnabled(category string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return !m.disabledCategories[category]
+}
+
+func (m *BlocklistManager) GetDisabledCategories() []string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	cats := make([]string, 0, len(m.disabledCategories))
+	for c := range m.disabledCategories {
+		cats = append(cats, c)
+	}
+	return cats
+}
 
 func (m *BlocklistManager) LoadBlocklist(r io.Reader, category string) error {
 	m.mu.Lock()
@@ -151,7 +178,7 @@ func (m *BlocklistManager) LoadBlocklist(r io.Reader, category string) error {
 		if idx := strings.Index(domain, "^"); idx != -1 {
 			domain = domain[:idx]
 		}
-		
+
 		domain = strings.ToLower(domain)
 		if domain != "" {
 			m.blockedDomains[domain] = category
@@ -194,22 +221,24 @@ func (m *BlocklistManager) Contains(domain string) bool {
 
 	m.mu.RLock()
 	category, exists := m.blockedDomains[lowerDomain]
+	disabled := m.disabledCategories[category]
 	m.mu.RUnlock()
 
-	if exists {
+	if exists && !disabled {
 		m.mu.Lock()
 		m.stats[category]++
 		m.stats["total"]++
 		m.mu.Unlock()
+		return true
 	}
 
-	return exists
+	return false
 }
 
 func (m *BlocklistManager) GetStats() map[string]interface{} {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	statsCopy := make(map[string]interface{})
 	for k, v := range m.stats {
 		statsCopy[k] = v
@@ -224,4 +253,3 @@ func (m *BlocklistManager) Count() int {
 	defer m.mu.RUnlock()
 	return len(m.blockedDomains)
 }
-

@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  atlantic-proxy:
+    build: .
+    image: atlanticproxy:latest
+    container_name: atlantic-proxy
+    restart: always
+    ports:
+      - "8082:8082" # API Server
+      - "8080:8080" # HTTP Proxy
+      - "1080:1080" # SOCKS5 Proxy
+    volumes:
+      - atlantic_data:/data
+    environment:
+      - SERVER_PORT=8082
+      - DATABASE_PATH=/data/atlantic.db
+      - LOG_LEVEL=info
+      # Inject credentials via .env file or environment
+      - OXYLABS_USERNAME=${OXYLABS_USERNAME}
+      - OXYLABS_PASSWORD=${OXYLABS_PASSWORD}
+      - PAYSTACK_SECRET_KEY=${PAYSTACK_SECRET_KEY}
+      - PAYSTACK_PUBLIC_KEY=${PAYSTACK_PUBLIC_KEY}
+    networks:
+      - atlantic_net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  atlantic_data:
+    driver: local
+
+networks:
+  atlantic_net:
+    driver: bridge

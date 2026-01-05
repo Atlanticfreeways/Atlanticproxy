@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -14,6 +16,12 @@ type DNSFilter struct {
 	compliance *ComplianceManager
 	server     *dns.Server
 	upstream   string
+	cache      sync.Map
+}
+
+type cacheEntry struct {
+	msg     *dns.Msg
+	expires time.Time
 }
 
 func NewDNSFilter(blocklist *BlocklistManager, compliance *ComplianceManager) *DNSFilter {
@@ -60,6 +68,19 @@ func (f *DNSFilter) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 
 	if len(r.Question) > 0 {
 		q := r.Question[0]
+
+		// Check Cache
+		if val, ok := f.cache.Load(q.Name); ok {
+			entry := val.(*cacheEntry)
+			if time.Now().Before(entry.expires) {
+				reply := entry.msg.Copy()
+				reply.Id = r.Id // Use current request ID
+				w.WriteMsg(reply)
+				return
+			}
+			f.cache.Delete(q.Name)
+		}
+
 		if f.ShouldBlock(q.Name) {
 			m.Rcode = dns.RcodeNameError // NXDOMAIN
 			w.WriteMsg(m)
@@ -75,6 +96,23 @@ func (f *DNSFilter) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 		w.WriteMsg(m)
 		return
 	}
+
+	// Cache result if it has answers
+	if len(in.Answer) > 0 && len(r.Question) > 0 {
+		ttl := uint32(300) // Default 5 mins
+		for _, ans := range in.Answer {
+			if ans.Header().Ttl < ttl {
+				ttl = ans.Header().Ttl
+			}
+		}
+		if ttl > 0 {
+			f.cache.Store(r.Question[0].Name, &cacheEntry{
+				msg:     in.Copy(),
+				expires: time.Now().Add(time.Duration(ttl) * time.Second),
+			})
+		}
+	}
+
 	w.WriteMsg(in)
 }
 

@@ -121,13 +121,15 @@ func (t *TunInterceptor) configureTunInterface() error {
 
 func (t *TunInterceptor) setupRouting() error {
 	// Add route through TUN interface on macOS
-	// For now, we'll route specific subnets rather than all traffic
-	// to avoid breaking the system
 
-	// Route 10.0.0.0/8 through TUN
-	cmd := exec.Command("route", "add", "-net", "10.0.0.0/8", "-interface", t.config.InterfaceName)
-	cmd.Run() // Ignore errors as route might already exist
+	// V1.5 SAFETY MODE:
+	// Do NOT route 10.0.0.0/8 by default as this causes a black hole without a running tun2socks implementation.
+	// Only route if explicitly enabled in config (not yet implemented) or for specific test IPs.
 
+	// cmd := exec.Command("route", "add", "-net", "10.0.0.0/8", "-interface", t.config.InterfaceName)
+	// cmd.Run()
+
+	fmt.Println("TUN: Safety Mode enabled. Network routing disabled. Packet interception paused.")
 	return nil
 }
 

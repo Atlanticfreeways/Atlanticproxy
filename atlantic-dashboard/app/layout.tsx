@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,10 +14,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AtlanticProxy Dash",
-  description: "High-performance proxy management dashboard",
+  title: {
+    template: '%s | AtlanticProxy',
+    default: 'AtlanticProxy - Enterprise Residential Network',
+  },
+  description: 'Manage your high-performance residential proxies with enterprise-grade security and control.',
+  keywords: ['proxy', 'residential proxy', 'vpn', 'security', 'atlanticproxy'],
+  authors: [{ name: 'AtlanticProxy Team' }],
+  openGraph: {
+    title: 'AtlanticProxy Dashboard',
+    description: 'Enterprise Residential Proxy Network Control Center',
+    siteName: 'AtlanticProxy',
+    locale: 'en_US',
+    type: 'website',
+  },
   icons: {
-    icon: "/favicon.svg",
+    icon: '/favicon.svg',
+    apple: '/apple-touch-icon.png',
   },
 };
 
@@ -32,6 +46,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
       >
         {children}
+        <Toaster />
       </body>
     </html>
   );

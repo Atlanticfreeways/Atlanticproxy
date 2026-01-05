@@ -2,8 +2,10 @@ package oxylabs
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -80,53 +82,15 @@ func (c *Client) GetProxyWithConfig(ctx context.Context, config ProxyConfig) (*u
 
 	// Format username with parameters
 	// Format: customer-USERNAME-cc-COUNTRY-city-CITY-st-STATE-sessid-SESSIONID-sesstime-TIME
-	var userParts []string
-	userParts = append(userParts, "customer-"+c.username)
-
-	if config.Country != "" {
-		userParts = append(userParts, "cc-"+strings.ToUpper(config.Country))
-	}
-	if config.City != "" {
-		userParts = append(userParts, "city-"+strings.ToLower(config.City))
-	}
-	if config.State != "" {
-		userParts = append(userParts, "st-"+strings.ToLower(config.State))
-	}
-
-	// Add session ID if provided, otherwise use client's default if set
-	sessID := config.SessionID
-	if sessID == "" {
-		sessID = c.sessionID
-	}
-	if sessID != "" {
-		userParts = append(userParts, "sessid-"+sessID)
-	}
-
-	if config.SessionTime > 0 {
-		userParts = append(userParts, fmt.Sprintf("sesstime-%d", config.SessionTime))
-	}
-
-	finalUsername := strings.Join(userParts, ";") // Oxylabs uses semicolon delimiter for some params? Actually typically it is user-param-val.
-	// Oxylabs standard format: customer-username-cc-US-city-ny-sessid-xyz
-	// They are joined by hyphens in the 'user' part, but if using separate params, documentation says:
-	// "customer-USERNAME-cc-US:PASSWORD"
-	// Wait, the standard format is "customer-USERNAME-param-value". All in the username string.
-
-	// Let's re-join correctly with hyphens if that's the driver.
-	// Actually Oxylabs often uses "customer-user-cc-US".
-	// My previous code used "customer-"+username.
-	// I need to be careful not to double hyphenate if not needed.
-
-	// Correction: Oxylabs often allows: customer-USERNAME-cc-US-sessid-123
-	// So I should join with hyphens.
-
-	// Refine joining logic:
-	// The prefix is "customer-"+c.username
-	// Then append "-param-value" for each.
-
 	var sb strings.Builder
-	sb.WriteString("customer-")
-	sb.WriteString(c.username)
+
+	// Handle customer prefix (ensure no double prefix)
+	if strings.HasPrefix(c.username, "customer-") {
+		sb.WriteString(c.username)
+	} else {
+		sb.WriteString("customer-")
+		sb.WriteString(c.username)
+	}
 
 	if config.Country != "" {
 		sb.WriteString("-cc-")
@@ -140,15 +104,22 @@ func (c *Client) GetProxyWithConfig(ctx context.Context, config ProxyConfig) (*u
 		sb.WriteString("-st-")
 		sb.WriteString(strings.ToLower(config.State))
 	}
+
+	// Add session ID if provided, otherwise use client's default if set
+	sessID := config.SessionID
+	if sessID == "" {
+		sessID = c.sessionID
+	}
 	if sessID != "" {
 		sb.WriteString("-sessid-")
 		sb.WriteString(sessID)
 	}
+
 	if config.SessionTime > 0 {
 		sb.WriteString(fmt.Sprintf("-sesstime-%d", config.SessionTime))
 	}
 
-	finalUsername = sb.String()
+	finalUsername := sb.String()
 
 	// Select endpoint
 	// If mobile/residential specific logic needed, select passed port
@@ -265,7 +236,25 @@ func (c *Client) checkEndpointHealth(ctx context.Context) {
 }
 
 func (c *Client) testEndpoint(ctx context.Context, proxyURL *url.URL) bool {
-	return true
+	client := &http.Client{
+		Transport: &http.Transport{
+			Proxy:           http.ProxyURL(proxyURL),
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+		Timeout: 5 * time.Second,
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://httpbin.org/ip", nil)
+	if err != nil {
+		return false
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
 }
 
 // SetSessionID sets a default session ID for the client

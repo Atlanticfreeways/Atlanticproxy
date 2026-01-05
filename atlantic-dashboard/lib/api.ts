@@ -2,9 +2,12 @@ export interface ProxyStatus {
     connected: boolean;
     location?: string;
     ip_address?: string;
+    isp?: string;
+    asn?: string;
     lat?: number;
     lon?: number;
     latency?: number;
+    protection_level?: 'High' | 'Medium' | 'Low' | 'None';
     killSwitch?: boolean;
     last_check?: string;
     error?: string;
@@ -150,14 +153,6 @@ class ApiClient {
         return data.user;
     }
 
-    async getMe(): Promise<User> {
-        const response = await this.request('/api/auth/me');
-        if (!response.ok) {
-            throw new Error('Failed to fetch user');
-        }
-        return response.json();
-    }
-
     async getStatus(): Promise<ProxyStatus> {
         const response = await this.request('/status');
         if (!response.ok) {
@@ -166,10 +161,63 @@ class ApiClient {
         return response.json();
     }
 
+    async connect(endpoint: string): Promise<void> {
+        const response = await this.request('/connect', {
+            method: 'POST',
+            body: JSON.stringify({ endpoint }),
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || 'Failed to connect');
+        }
+    }
+
+    async disconnect(): Promise<void> {
+        const response = await this.request('/disconnect', {
+            method: 'POST',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to disconnect');
+        }
+    }
+
+    async rotateIP(): Promise<void> {
+        const response = await this.request('/api/rotation/session/new', {
+            method: 'POST',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to rotate IP');
+        }
+    }
+
+    async getMe(): Promise<User> {
+        const response = await this.request('/api/auth/me');
+        if (!response.ok) {
+            throw new Error('Failed to fetch user');
+        }
+        return response.json();
+    }
+
     async getStatistics(): Promise<Statistics> {
         const response = await this.request('/api/statistics');
         if (!response.ok) {
             throw new Error('Failed to fetch statistics');
+        }
+        return response.json();
+    }
+
+    async getSecurityStatus(): Promise<SecurityStatus> {
+        const response = await this.request('/api/security/status');
+        if (!response.ok) {
+            throw new Error('Failed to fetch security status');
+        }
+        return response.json();
+    }
+
+    async getProtocolCredentials(): Promise<ProtocolCredentials> {
+        const response = await this.request('/api/protocol/credentials');
+        if (!response.ok) {
+            throw new Error('Failed to fetch protocol credentials');
         }
         return response.json();
     }
@@ -212,34 +260,69 @@ class ApiClient {
     }
 
     subscribeToStatus(callback: (status: ProxyStatus) => void): () => void {
+        let ws: WebSocket | null = null;
+        let reconnectTimeout: NodeJS.Timeout | null = null;
+        let isClosed = false;
 
-        const ws = new WebSocket(`${this.wsUrl}/ws`);
+        const connect = () => {
+            if (isClosed) return;
 
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                // Handle complex payloads or direct status updates
-                if (data.type === 'killswitch') {
-                    // Update specific field if needed, but usually we just broadcast full status
-                    // For now, let's assume if it's not a full status we might need to handle it
-                    // But our backend broadcast full status on connect/disconnect
-                } else {
+            ws = new WebSocket(`${this.wsUrl}/ws`);
+
+            ws.onopen = () => {
+                console.log('WebSocket Connected');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
                     callback(data);
+                } catch (error) {
+                    console.error('Failed to parse websocket message:', error);
                 }
-            } catch (error) {
-                console.error('Failed to parse websocket message:', error);
-            }
+            };
+
+            ws.onclose = () => {
+                if (!isClosed) {
+                    // Try to reconnect in 3s
+                    reconnectTimeout = setTimeout(connect, 3000);
+                }
+            };
+
+            ws.onerror = (err) => {
+                console.error('WebSocket error:', err);
+                ws?.close();
+            };
         };
 
-        ws.onerror = (error) => {
-            console.error('Websocket error:', error);
-        };
+        connect();
 
         return () => {
-            ws.close();
+            isClosed = true;
+            if (reconnectTimeout) clearTimeout(reconnectTimeout);
+            ws?.close();
         };
     }
 
+    async getAdblockConfig(): Promise<{ categories: Record<string, boolean>, whitelist: string[], custom: string[] }> {
+        const response = await this.request('/api/adblock/config');
+        if (!response.ok) {
+            throw new Error('Failed to fetch adblock config');
+        }
+        return response.json();
+    }
+
+    async toggleAdblockCategory(category: string, enabled: boolean): Promise<void> {
+        const response = await this.request('/api/adblock/category', {
+            method: 'POST',
+            body: JSON.stringify({ category, enabled }),
+        });
+        if (!response.ok) {
+            throw new Error('Failed to toggle category');
+        }
+    }
+
+    // Rotation is already partially there, let's ensure full coverage
     async getRotationConfig(): Promise<RotationConfig> {
         const response = await this.request('/api/rotation/config');
         if (!response.ok) {
@@ -435,6 +518,32 @@ export interface AdblockStats {
     rules_count: number;
     last_updated: string;
     [key: string]: number | string;
+}
+
+export interface SecurityStatus {
+    anonymity_score: number;
+    ip_leak_detected: boolean;
+    dns_leak_detected: boolean;
+    webrtc_leak_detected: boolean;
+    strict_killswitch: boolean;
+    detected_dns: string[];
+    message: string;
+}
+
+export interface ProtocolCredentials {
+    socks5: {
+        host: string;
+        port: number;
+        username?: string;
+        password?: string;
+    };
+    shadowsocks: {
+        host: string;
+        port: number;
+        method: string;
+        password: string;
+        uri: string;
+    };
 }
 
 export const apiClient = new ApiClient();

@@ -10,10 +10,10 @@ import (
 type RotationMode string
 
 const (
-	ModePerRequest   RotationMode = "per-request"
-	ModeSticky1Min   RotationMode = "sticky-1min"
-	ModeSticky10Min  RotationMode = "sticky-10min"
-	ModeSticky30Min  RotationMode = "sticky-30min"
+	ModePerRequest  RotationMode = "per-request"
+	ModeSticky1Min  RotationMode = "sticky-1min"
+	ModeSticky10Min RotationMode = "sticky-10min"
+	ModeSticky30Min RotationMode = "sticky-30min"
 )
 
 // RotationConfig holds configuration for the rotation manager
@@ -26,19 +26,21 @@ type RotationConfig struct {
 
 // Manager handles IP rotation logic and session management
 type Manager struct {
-	mu            sync.RWMutex
-	config        RotationConfig
+	mu             sync.RWMutex
+	config         RotationConfig
 	currentSession *Session
-	stopChan      chan struct{}
+	analytics      *AnalyticsManager
+	stopChan       chan struct{}
 }
 
 // NewManager creates a new rotation manager with default settings
-func NewManager() *Manager {
+func NewManager(analytics *AnalyticsManager) *Manager {
 	return &Manager{
 		config: RotationConfig{
 			Mode: ModePerRequest, // Default mode
 		},
-		stopChan: make(chan struct{}),
+		analytics: analytics,
+		stopChan:  make(chan struct{}),
 	}
 }
 
@@ -95,7 +97,7 @@ func (m *Manager) ForceRotation() error {
 // Must be called with lock held
 func (m *Manager) forceRotationLocked() error {
 	var duration time.Duration
-	
+
 	switch m.config.Mode {
 	case ModePerRequest:
 		duration = 0 // Or very short
@@ -106,10 +108,14 @@ func (m *Manager) forceRotationLocked() error {
 	case ModeSticky30Min:
 		duration = 30 * time.Minute
 	}
-	
+
 	session := NewSession(duration)
 	m.currentSession = session
-	
+
+	if m.analytics != nil {
+		m.analytics.TrackRotation(session.ID, "forced", m.config.Mode, m.config.Country)
+	}
+
 	return nil
 }
 
@@ -117,7 +123,7 @@ func (m *Manager) forceRotationLocked() error {
 func (m *Manager) UpdateConfig(config RotationConfig) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	// Validate mode
 	switch config.Mode {
 	case ModePerRequest, ModeSticky1Min, ModeSticky10Min, ModeSticky30Min:
@@ -125,7 +131,7 @@ func (m *Manager) UpdateConfig(config RotationConfig) error {
 	default:
 		return errors.New("invalid rotation mode")
 	}
-	
+
 	m.config = config
 	// Force rotation to apply new geo settings immediately
 	return m.forceRotationLocked()

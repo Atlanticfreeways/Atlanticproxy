@@ -5,10 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Download } from '@phosphor-icons/react';
-import { apiClient, RotationStats } from '@/lib/api';
+import { apiClient, RotationStats, UsageStats } from '@/lib/api';
 
 export default function StatisticsPage() {
     const [rotationStats, setRotationStats] = useState<RotationStats | null>(null);
+    const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
+    const [latency, setLatency] = useState<number | null>(null);
 
     useEffect(() => {
         loadData();
@@ -16,26 +18,40 @@ export default function StatisticsPage() {
 
     const loadData = async () => {
         try {
-            const stats = await apiClient.getRotationStats();
+            const [stats, usage, status] = await Promise.all([
+                apiClient.getRotationStats(),
+                apiClient.getUsage(),
+                apiClient.getStatus()
+            ]);
             setRotationStats(stats);
+            setUsageStats(usage);
+            if (status.latency) setLatency(status.latency);
         } catch (error) {
             console.error('Failed to load stats:', error);
         }
     };
 
     const dataUsage = [
-        { day: 'Mon', upload: 120, download: 450 },
-        { day: 'Tue', upload: 150, download: 520 },
-        { day: 'Wed', upload: 180, download: 600 },
-        { day: 'Thu', upload: 140, download: 480 },
-        { day: 'Fri', upload: 200, download: 720 },
-        { day: 'Sat', upload: 250, download: 850 },
-        { day: 'Sun', upload: 180, download: 640 },
+        { day: 'Mon', upload: 0, download: 0 },
+        { day: 'Tue', upload: 0, download: 0 },
+        { day: 'Wed', upload: 0, download: 0 },
+        { day: 'Thu', upload: 0, download: 0 },
+        { day: 'Fri', upload: 0, download: 0 },
+        { day: 'Sat', upload: 0, download: 0 },
+        { day: 'Sun', upload: 0, download: 0 },
     ];
 
     // Process Geo Data for Pie Chart
-    const geoData = rotationStats ? Object.entries(rotationStats.geo_stats).map(([name, value]) => ({ name, value })) : [];
+    const geoData = rotationStats?.geo_stats ? Object.entries(rotationStats.geo_stats).map(([name, value]) => ({ name, value })) : [];
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+
+    const formatBytes = (bytes: number) => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -66,7 +82,7 @@ export default function StatisticsPage() {
                         <CardTitle className="text-neutral-400 text-sm">Success Rate</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-3xl font-bold text-green-400">{rotationStats?.success_rate.toFixed(1) || 0}%</p>
+                        <p className="text-3xl font-bold text-green-400">{(rotationStats?.success_rate ?? 0).toFixed(1)}%</p>
                         <p className="text-sm text-neutral-500 mt-1">Connection Health</p>
                     </CardContent>
                 </Card>
@@ -151,14 +167,14 @@ export default function StatisticsPage() {
                 </Card>
             </div>
 
-            {/* Statistics Grid (Legacy/General) */}
+            {/* Statistics Grid (Real/Usage) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="bg-neutral-900 border-neutral-800">
                     <CardHeader>
                         <CardTitle className="text-neutral-400 text-sm">Combined Data</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-3xl font-bold text-white">12.4 GB</p>
+                        <p className="text-3xl font-bold text-white">{formatBytes(usageStats?.data_transferred_bytes || 0)}</p>
                         <p className="text-sm text-neutral-500 mt-1">This month</p>
                     </CardContent>
                 </Card>
@@ -168,18 +184,18 @@ export default function StatisticsPage() {
                         <CardTitle className="text-neutral-400 text-sm">Total Requests</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-3xl font-bold text-white">45,231</p>
+                        <p className="text-3xl font-bold text-white">{(usageStats?.requests_made || 0).toLocaleString()}</p>
                         <p className="text-sm text-neutral-500 mt-1">This month</p>
                     </CardContent>
                 </Card>
 
                 <Card className="bg-neutral-900 border-neutral-800">
                     <CardHeader>
-                        <CardTitle className="text-neutral-400 text-sm">Avg. Latency</CardTitle>
+                        <CardTitle className="text-neutral-400 text-sm">Current Latency</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-3xl font-bold text-white">42ms</p>
-                        <p className="text-sm text-green-500 mt-1">↓ 12% from last month</p>
+                        <p className="text-3xl font-bold text-white">{latency ? `${latency}ms` : '--'}</p>
+                        <p className="text-sm text-neutral-500 mt-1">Realtime Check</p>
                     </CardContent>
                 </Card>
             </div>
