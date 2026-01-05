@@ -34,7 +34,7 @@ func (s *Server) handleGetSecurityStatus(c *gin.Context) {
 	status := SecurityStatus{
 		AnonymityScore:   0,
 		StrictKillswitch: strictKs,
-		DetectedDNS:      []string{"1.1.1.1", "8.8.8.8"}, // Mock for now, would use leak detector
+		DetectedDNS:      []string{}, // Cleared mock
 	}
 
 	if !connected {
@@ -52,11 +52,9 @@ func (s *Server) handleGetSecurityStatus(c *gin.Context) {
 	}
 
 	// Use Leak Detector
-	// We instantiate a transient detector for this check
 	ld := validator.NewLeakDetector(proxyIP, nil)
-	// We'd ideally want to pass the configured DNS from the proxy engine
 
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	results, err := ld.RunFullCheck(timeoutCtx)
@@ -64,13 +62,18 @@ func (s *Server) handleGetSecurityStatus(c *gin.Context) {
 		s.logger.Warnf("Leak check failed: %v", err)
 	}
 
+	var leakDetails []string
+
 	for _, res := range results {
 		if res.IsLeaking {
 			score -= 30
+			leakDetails = append(leakDetails, res.Details)
+
 			if res.LeakType == "IP" {
 				status.IPLeakDetected = true
 			} else if res.LeakType == "DNS" {
 				status.DNSLeakDetected = true
+				status.DetectedDNS = append(status.DetectedDNS, res.DetectedIPs...)
 			}
 		}
 	}
@@ -82,11 +85,11 @@ func (s *Server) handleGetSecurityStatus(c *gin.Context) {
 	status.AnonymityScore = score
 
 	if status.IPLeakDetected {
-		status.Message = "Critical: IP Leak Detected!"
+		status.Message = "Critical: IP Leak Detected! " + leakDetails[0]
 	} else if status.DNSLeakDetected {
-		status.Message = "Warning: DNS Traffic may be leaking."
+		status.Message = "Warning: DNS Traffic leaking. " + leakDetails[0]
 	} else {
-		status.Message = "You are anonymous."
+		status.Message = "You are anonymous. No leaks detected."
 	}
 
 	c.JSON(http.StatusOK, status)
