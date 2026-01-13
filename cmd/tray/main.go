@@ -41,7 +41,8 @@ func startPolling() {
 		case <-ticker.C:
 			status, err := client.GetStatus()
 			if err != nil {
-				// TODO: Update menu to show error state?
+				menu.SetErrorState(err)
+				// Wait a bit longer before retrying to avoid log spam if we were logging
 				continue
 			}
 
