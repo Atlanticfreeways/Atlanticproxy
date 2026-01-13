@@ -1,0 +1,136 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.staging
+
+# Allow development env (contains dev API keys)
+!.env.development
+
+# API Keys and Secrets
+*.key
+*.pem
+secrets/
+credentials/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node modules (if any)
+node_modules/
+
+# Build artifacts
+dist/
+build/
+target/
+*.dmg
+*.tar.gz
+*.zip
+scripts/proxy-client/bin/
+scripts/proxy-client/build/
+scripts/proxy-client/atlantic_service
+scripts/proxy-client/atlantic-service
+scripts/proxy-client/proxy-client
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Coverage reports
+coverage.txt
+coverage.html
+
+# Docker
+.dockerignore
+
+# Kubernetes
+*.yaml.bak
+*.yml.bak
+
+# Internal Documentation and Roadmaps (DO NOT COMMIT)
+# Implementation guides and task tracking
+*_STATUS.md
+*_SUMMARY.md
+*_NOTICE.md
+*_ROADMAP.md
+*_CHECKLIST.md
+*_IMPLEMENTATION_GUIDE.md
+*_BRIEFING.md
+*_ANALYSIS.md
+*_STRATEGY.md
+CLEANUP_SUMMARY.md
+PRODUCTION_DEPLOYMENT_PLAN.md
+V1.5_STABILITY_GUIDE.md
+V1.5_STABILITY_CHECKLIST.md
+V1_IMPLEMENTATION_GUIDE.md
+VERIFICATION_GUIDE.md
+CRITICAL_TASKS.md
+legacy_docs/
+
+# Internal project documentation folder
+About the Proj/
+
+# Internal documentation (keep only public-facing docs)
+docs/DEVELOPER_GUIDE.md
+docs/FUTURE_PHASE_9_ENCRYPTION.md
+docs/INTEGRATION_EXAMPLES.md
+docs/LOAD_TESTING_GUIDE.md
+docs/PARTNERSHIP_EVALUATION.md
+docs/PRICING_CONSOLIDATION_PROPOSAL.md
+docs/PRICING_QUICK_REFERENCE.md
+docs/PRICING_STRUCTURE.md
+docs/PRICING_STRUCTURE_V3.md
+docs/PRICING_UNIFIED_SUMMARY.md
+docs/PRODUCTION_DEPLOYMENT_GUIDE.md
+docs/ROTATION_GUIDE.md
+docs/SECURITY_HARDENING_CHECKLIST.md
+docs/SWAGGER_SETUP.md
+
+# Keep these public docs (NOT ignored):
+# - README.md
+# - docs/API_REFERENCE.md
+# - docs/USER_GUIDE.mdscripts/proxy-client/service
+scripts/proxy-client/validate_auth
+.env.prod.example
+scripts/proxy-client/test_auth.sh
+scripts/proxy-client/validate_*.go

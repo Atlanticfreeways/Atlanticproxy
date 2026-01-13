@@ -1,0 +1,17 @@
+[Unit]
+Description=AtlanticProxy Client Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/usr/local/bin
+ExecStart=/usr/local/bin/atlantic-service
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/atlanticproxy/service.log
+StandardError=append:/var/log/atlanticproxy/error.log
+Environment=LOG_FORMAT=json
+
+[Install]
+WantedBy=multi-user.target
