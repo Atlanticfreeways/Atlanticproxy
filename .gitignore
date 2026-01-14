@@ -70,6 +70,10 @@ scripts/proxy-client/build/
 scripts/proxy-client/atlantic_service
 scripts/proxy-client/atlantic-service
 scripts/proxy-client/proxy-client
+scripts/proxy-client/service
+scripts/proxy-client/validate_auth
+scripts/proxy-client/test_output.txt
+scripts/proxy-client/logs/
 
 # Temporary files
 tmp/
@@ -99,12 +103,16 @@ coverage.html
 *_ANALYSIS.md
 *_STRATEGY.md
 CLEANUP_SUMMARY.md
+CLEANUP_PLAN.md
 PRODUCTION_DEPLOYMENT_PLAN.md
 V1.5_STABILITY_GUIDE.md
 V1.5_STABILITY_CHECKLIST.md
 V1_IMPLEMENTATION_GUIDE.md
 VERIFICATION_GUIDE.md
+MISSING_CODE_REPORT.md
+MISSING_FILES_LIST.md
 CRITICAL_TASKS.md
+PHASE9_QUICKACCESS.md
 legacy_docs/
 
 # Internal project documentation folder
