@@ -42,7 +42,6 @@ func Load() *Config {
 			OxylabsUsername: getEnv("OXYLABS_USERNAME", ""),
 			OxylabsPassword: getEnv("OXYLABS_PASSWORD", ""),
 			OxylabsAPIKey:   getEnv("OXYLABS_API_KEY", ""),
-			PiaAPIKey:       getEnv("PIA_API_KEY", ""),
 			ProviderType:    getEnv("PROVIDER_TYPE", "auto"),
 			ListenAddr:      "127.0.0.1:8080",
 			HealthCheckURL:  "https://httpbin.org/ip",
