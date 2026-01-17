@@ -131,6 +131,13 @@ POST /api/auth/refresh
 
 ### Proxies
 
+#### Provider Configuration
+Atlantic Proxy supports multiple providers:
+- **Bright Data** (Typical `PROVIDER_TYPE=brightdata`)
+- **Oxylabs** (Legacy, `PROVIDER_TYPE=oxylabs`)
+
+The active provider is configured via environment variables.
+
 #### List Proxies
 ```
 GET /api/proxies?page=1&limit=10

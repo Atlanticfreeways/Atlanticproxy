@@ -59,7 +59,19 @@ sudo make run
 ```bash
 OXYLABS_USERNAME=your_oxylabs_username
 OXYLABS_PASSWORD=your_oxylabs_password
+
+# Bright Data (New)
+BRIGHTDATA_USERNAME=brd-customer-YOUR_USERNAME
+BRIGHTDATA_PASSWORD=YOUR_PASSWORD
+PROVIDER_TYPE=brightdata
 ```
+
+### Bright Data Features
+- **Residential proxies** (195+ countries)
+- **Automatic IP rotation**
+- **Sticky sessions** (1min, 10min, 30min)
+- **City-level targeting**
+- **High success rate** (>99%)
 
 ### Configuration File
 Create `/etc/atlanticproxy/config.yaml`:

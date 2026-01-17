@@ -15,6 +15,7 @@ import (
 	"github.com/atlanticproxy/proxy-client/internal/billing"
 	mon "github.com/atlanticproxy/proxy-client/internal/monitor"
 	"github.com/atlanticproxy/proxy-client/internal/rotation"
+	"github.com/atlanticproxy/proxy-client/pkg/brightdata"
 	"github.com/atlanticproxy/proxy-client/pkg/cert"
 	"github.com/atlanticproxy/proxy-client/pkg/oxylabs"
 	"github.com/atlanticproxy/proxy-client/pkg/oxylabs/realtime"
@@ -26,15 +27,20 @@ type Config struct {
 	OxylabsUsername string
 	OxylabsPassword string
 	OxylabsAPIKey   string // For Realtime Crawler API
-	PiaAPIKey       string // For PIA S5 Proxy API
-	ProviderType    string // auto, residential, realtime, pia
-	ListenAddr      string
-	HealthCheckURL  string
+
+	BrightDataUsername string
+	BrightDataPassword string
+
+	PiaAPIKey      string // For PIA S5 Proxy API
+	ProviderType   string // auto, residential, realtime, pia
+	ListenAddr     string
+	HealthCheckURL string
 }
 
 type Engine struct {
 	config           *Config
 	oxylabs          *oxylabs.Client
+	brightDataClient *brightdata.Client
 	providerManager  *providers.Manager
 	adblock          *adblock.Engine
 	rotationManager  *rotation.Manager
@@ -61,6 +67,12 @@ func NewEngine(config *Config, adblocker *adblock.Engine, rm *rotation.Manager, 
 	// Initialize Provider Manager
 	manager := providers.NewManager()
 	var oxylabsClient *oxylabs.Client
+	var brightDataClient *brightdata.Client
+
+	// 0. Initialize Bright Data
+	if config.BrightDataUsername != "" && config.BrightDataPassword != "" {
+		brightDataClient = brightdata.NewClient(config.BrightDataUsername, config.BrightDataPassword)
+	}
 
 	// 1. Register Oxylabs Residential
 	if config.OxylabsUsername != "" {
@@ -81,7 +93,10 @@ func NewEngine(config *Config, adblocker *adblock.Engine, rm *rotation.Manager, 
 
 	// 4. Set Active Provider
 	if config.ProviderType == "auto" {
-		if config.OxylabsUsername != "" {
+		if config.BrightDataUsername != "" {
+			// Prefer Bright Data
+			// We don't register it in manager yet, but we have the client
+		} else if config.OxylabsUsername != "" {
 			manager.SetActive("residential")
 		} else if config.OxylabsAPIKey != "" {
 			manager.SetActive("realtime")
@@ -106,6 +121,7 @@ func NewEngine(config *Config, adblocker *adblock.Engine, rm *rotation.Manager, 
 	engine := &Engine{
 		config:           config,
 		oxylabs:          oxylabsClient,
+		brightDataClient: brightDataClient,
 		providerManager:  manager,
 		adblock:          adblocker,
 		rotationManager:  rm,
@@ -145,6 +161,21 @@ func NewEngine(config *Config, adblocker *adblock.Engine, rm *rotation.Manager, 
 				proxyConfig.SessionID = session.ID
 				proxyConfig.SessionTime = int(session.TimeRemaining().Minutes())
 			}
+		}
+
+		// Use Bright Data if available
+		if engine.brightDataClient != nil && (config.ProviderType == "brightdata" || config.ProviderType == "auto") {
+			var proxyURL string
+			if proxyConfig.SessionID != "" {
+				proxyURL = engine.brightDataClient.GetProxyURLWithSession(proxyConfig.SessionID)
+			} else if proxyConfig.City != "" {
+				proxyURL = engine.brightDataClient.GetProxyURLWithCity(proxyConfig.Country, proxyConfig.City)
+			} else if proxyConfig.Country != "" {
+				proxyURL = engine.brightDataClient.GetProxyURLWithCountry(proxyConfig.Country)
+			} else {
+				proxyURL = engine.brightDataClient.GetProxyURL()
+			}
+			return url.Parse(proxyURL)
 		}
 
 		// Use Provider Manager
@@ -381,4 +412,92 @@ func (e *Engine) IsRunning() bool {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	return e.running
+}
+
+func (e *Engine) getProxyTransport() (*http.Transport, error) {
+	// Get session ID from rotation manager if available
+	var sessionID string
+	if e.rotationManager != nil {
+		session, err := e.rotationManager.GetCurrentSession()
+		if err == nil && session != nil {
+			sessionID = session.ID
+		}
+	}
+
+	// Use Bright Data if available
+	if e.brightDataClient != nil {
+		if sessionID != "" {
+			return e.brightDataClient.GetHTTPTransportWithSession(sessionID)
+		}
+		return e.brightDataClient.GetHTTPTransport()
+	}
+
+	// Fallback to Oxylabs
+	if e.oxylabs != nil {
+		ctx := context.Background() // Best effort
+		config := oxylabs.ProxyConfig{SessionID: sessionID}
+		proxyURL, err := e.oxylabs.GetProxyWithConfig(ctx, config)
+		if err != nil {
+			return nil, err
+		}
+		return &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+		}, nil
+	}
+
+	return nil, fmt.Errorf("no proxy provider available")
+}
+
+func (e *Engine) getProxyURL() string {
+	// Get session ID from rotation manager if available
+	var sessionID string
+	if e.rotationManager != nil {
+		session, err := e.rotationManager.GetCurrentSession()
+		if err == nil && session != nil {
+			sessionID = session.ID
+		}
+	}
+
+	// Use Bright Data if available
+	if e.brightDataClient != nil {
+		if sessionID != "" {
+			return e.brightDataClient.GetProxyURLWithSession(sessionID)
+		}
+		return e.brightDataClient.GetProxyURL()
+	}
+
+	// Fallback to Oxylabs
+	if e.oxylabs != nil {
+		ctx := context.Background()
+		config := oxylabs.ProxyConfig{SessionID: sessionID}
+		proxyURL, err := e.oxylabs.GetProxyWithConfig(ctx, config)
+		if err == nil {
+			return proxyURL.String()
+		}
+	}
+
+	return ""
+}
+
+func (e *Engine) getProxyURLWithLocation(country, city string) string {
+	if e.brightDataClient != nil {
+		if city != "" {
+			return e.brightDataClient.GetProxyURLWithCity(country, city)
+		}
+		return e.brightDataClient.GetProxyURLWithCountry(country)
+	}
+
+	if e.oxylabs != nil {
+		ctx := context.Background()
+		config := oxylabs.ProxyConfig{
+			Country: country,
+			City:    city,
+		}
+		proxyURL, err := e.oxylabs.GetProxyWithConfig(ctx, config)
+		if err == nil {
+			return proxyURL.String()
+		}
+	}
+
+	return ""
 }
