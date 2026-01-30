@@ -91,53 +91,13 @@ coverage.html
 *.yaml.bak
 *.yml.bak
 
-# Internal Documentation and Roadmaps (DO NOT COMMIT)
-# Implementation guides and task tracking
-*_STATUS.md
-*_SUMMARY.md
-*_NOTICE.md
-*_ROADMAP.md
-*_CHECKLIST.md
-*_IMPLEMENTATION_GUIDE.md
-*_BRIEFING.md
-*_ANALYSIS.md
-*_STRATEGY.md
-CLEANUP_SUMMARY.md
-CLEANUP_PLAN.md
-PRODUCTION_DEPLOYMENT_PLAN.md
-V1.5_STABILITY_GUIDE.md
-V1.5_STABILITY_CHECKLIST.md
-V1_IMPLEMENTATION_GUIDE.md
-VERIFICATION_GUIDE.md
-MISSING_CODE_REPORT.md
-MISSING_FILES_LIST.md
-CRITICAL_TASKS.md
-PHASE9_QUICKACCESS.md
+# Archived/Outdated Documentation
+About the Proj/Archive/
 legacy_docs/
 
-# Internal project documentation folder
-About the Proj/
-
-# Internal documentation (keep only public-facing docs)
-docs/DEVELOPER_GUIDE.md
-docs/FUTURE_PHASE_9_ENCRYPTION.md
-docs/INTEGRATION_EXAMPLES.md
-docs/LOAD_TESTING_GUIDE.md
-docs/PARTNERSHIP_EVALUATION.md
-docs/PRICING_CONSOLIDATION_PROPOSAL.md
-docs/PRICING_QUICK_REFERENCE.md
-docs/PRICING_STRUCTURE.md
-docs/PRICING_STRUCTURE_V3.md
-docs/PRICING_UNIFIED_SUMMARY.md
-docs/PRODUCTION_DEPLOYMENT_GUIDE.md
-docs/ROTATION_GUIDE.md
-docs/SECURITY_HARDENING_CHECKLIST.md
-docs/SWAGGER_SETUP.md
-
-# Keep these public docs (NOT ignored):
-# - README.md
-# - docs/API_REFERENCE.md
-# - docs/USER_GUIDE.mdscripts/proxy-client/service
+# Temporary task files (not committed)
+*_TEMP.md
+*_DRAFT.mdscripts/proxy-client/service
 scripts/proxy-client/validate_auth
 .env.prod.example
 scripts/proxy-client/test_auth.sh
