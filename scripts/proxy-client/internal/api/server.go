@@ -76,7 +76,11 @@ func NewServer(ab *adblock.Engine, ks *killswitch.Guardian, it *interceptor.TunI
 
 	// CORS
 	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
+		if allowedOrigins == "" {
+			allowedOrigins = "http://localhost:3000" // Dev fallback
+		}
+		c.Writer.Header().Set("Access-Control-Allow-Origin", allowedOrigins)
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if c.Request.Method == "OPTIONS" {
@@ -166,16 +170,10 @@ func (s *Server) fetchGeoAndBroadcast() {
 	// Calculate specific protection level logic here if needed
 	// e.g., if Killswitch true -> "Max"
 
-	// Broadcast inside lock ensuring consistency of snapshot sent?
-	// Or outside. Inside is fine for small payload.
-	// But broadcast iterates clients and writes.
-	// We should copy status and broadcast outside.
+	// Broadcast outside lock
 	statusCopy := *s.status
-
-	// Release lock before broadcasting to avoid blocking writers if broadcast is slow
 	s.mu.Unlock()
 	s.broadcast(statusCopy)
-	s.mu.Lock() // Re-acquire to satisfy defer (slightly hacky but keeps defer simple, or just use block)
 }
 
 func (s *Server) updateStatusLocked() {

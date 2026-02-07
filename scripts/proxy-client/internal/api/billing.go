@@ -7,6 +7,7 @@ import (
 
 	"github.com/atlanticproxy/proxy-client/internal/billing"
 	"github.com/atlanticproxy/proxy-client/internal/payment"
+	"github.com/atlanticproxy/proxy-client/internal/validation"
 	"github.com/gin-gonic/gin"
 )
 
@@ -173,6 +174,12 @@ func (s *Server) handleStartTrial(c *gin.Context) {
 		Email string `json:"email" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	// Validate email
+	if err := validation.ValidateEmail(req.Email); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -182,8 +189,15 @@ func (s *Server) handleStartTrial(c *gin.Context) {
 	ref := fmt.Sprintf("TRIAL-%d", time.Now().Unix())
 	callbackURL := "http://localhost:3000/payment/callback"
 	
+	// Validate amount
+	if err := validation.ValidateAmount(1308000, 1000000, 2000000); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid amount"})
+		return
+	}
+	
 	resp, err := paystackClient.InitializeTransaction(req.Email, 1308000, ref, callbackURL)
 	if err != nil {
+		s.logger.Errorf("Payment initialization failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Payment initialization failed"})
 		return
 	}
@@ -217,8 +231,15 @@ func (s *Server) handleVerifyPayment(c *gin.Context) {
 		return
 	}
 
+	// Validate reference
+	if err := validation.ValidateReference(reference); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	resp, err := paystackClient.VerifyTransaction(reference)
 	if err != nil {
+		s.logger.Errorf("Verification failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Verification failed"})
 		return
 	}

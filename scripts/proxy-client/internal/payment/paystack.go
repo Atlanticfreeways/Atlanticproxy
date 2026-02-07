@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 )
 
 type PaystackClient struct {
@@ -13,8 +14,12 @@ type PaystackClient struct {
 }
 
 func NewPaystackClient() *PaystackClient {
+	secretKey := os.Getenv("PAYSTACK_SECRET_KEY")
+	if secretKey == "" {
+		secretKey = "sk_test_dac14730d4acd736b4a70ebfb24cdeeded8e22d0" // Fallback for dev only
+	}
 	return &PaystackClient{
-		secretKey: "sk_test_dac14730d4acd736b4a70ebfb24cdeeded8e22d0",
+		secretKey: secretKey,
 		baseURL:   "https://api.paystack.co",
 	}
 }

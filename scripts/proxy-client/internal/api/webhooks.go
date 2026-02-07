@@ -31,25 +31,27 @@ func (s *Server) handlePaystackWebhook(c *gin.Context) {
 	// 1. Verify Signature
 	secret := os.Getenv("PAYSTACK_SECRET_KEY")
 	if secret == "" {
-		s.logger.Warn("PAYSTACK_SECRET_KEY not set, skipping signature verification (DEV MODE)")
-	} else {
-		signature := c.GetHeader("X-Paystack-Signature")
-		if signature == "" {
-			s.logger.Error("Missing Paystack signature")
-			c.Status(http.StatusUnauthorized)
-			return
-		}
+		s.logger.Error("PAYSTACK_SECRET_KEY not set - webhook rejected")
+		c.Status(http.StatusUnauthorized)
+		return
+	}
 
-		// Calculate HMAC-SHA512
-		mac := hmac.New(sha512.New, []byte(secret))
-		mac.Write(payload)
-		expectedMAC := hex.EncodeToString(mac.Sum(nil))
+	signature := c.GetHeader("X-Paystack-Signature")
+	if signature == "" {
+		s.logger.Error("Missing Paystack signature")
+		c.Status(http.StatusUnauthorized)
+		return
+	}
 
-		if !hmac.Equal([]byte(signature), []byte(expectedMAC)) {
-			s.logger.Error("Invalid Paystack signature")
-			c.Status(http.StatusUnauthorized)
-			return
-		}
+	// Calculate HMAC-SHA512
+	mac := hmac.New(sha512.New, []byte(secret))
+	mac.Write(payload)
+	expectedMAC := hex.EncodeToString(mac.Sum(nil))
+
+	if !hmac.Equal([]byte(signature), []byte(expectedMAC)) {
+		s.logger.Error("Invalid Paystack signature")
+		c.Status(http.StatusUnauthorized)
+		return
 	}
 
 	// 2. Parse Event
@@ -154,10 +156,18 @@ func (s *Server) handleSubscriptionDisable(event PaystackEvent) {
 
 	s.logger.Infof("Subscription disabled for user: %s", user.ID)
 	
-	// Schedule deposit refund (7 days)
+	// Schedule deposit refund (7 days) with context
 	go func() {
-		time.Sleep(7 * 24 * time.Hour)
-		// TODO: Refund deposit transaction
-		s.logger.Infof("Deposit refund processed for user: %s", user.ID)
+		ctx, cancel := context.WithTimeout(context.Background(), 8*24*time.Hour)
+		defer cancel()
+		
+		select {
+		case <-ctx.Done():
+			s.logger.Warn("Deposit refund context cancelled")
+			return
+		case <-time.After(7 * 24 * time.Hour):
+			// TODO: Refund deposit transaction
+			s.logger.Infof("Deposit refund processed for user: %s", user.ID)
+		}
 	}()
 }
