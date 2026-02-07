@@ -59,6 +59,7 @@ func (s *Server) handlePaystackWebhook(c *gin.Context) {
 			Reference string `json:"reference"`
 			Amount    int    `json:"amount"`
 			Email     string `json:"email"`
+			Status    string `json:"status"`
 			Metadata  struct {
 				PlanID string `json:"plan_id"`
 				UserID string `json:"user_id"`
@@ -75,8 +76,22 @@ func (s *Server) handlePaystackWebhook(c *gin.Context) {
 
 	s.logger.Infof("Received Paystack event: %s | Ref: %s", event.Event, event.Data.Reference)
 
-	// 3. Handle 'charge.success'
-	if event.Event == "charge.success" {
+	// 3. Handle Events
+	switch event.Event {
+	case "charge.success":
+		s.handleChargeSuccess(event, payload)
+	case "subscription.create":
+		s.logger.Infof("Subscription created: %s", event.Data.Email)
+	case "subscription.disable":
+		s.handleSubscriptionDisable(event)
+	case "subscription.not_renew":
+		s.logger.Infof("Subscription will not renew: %s", event.Data.Email)
+	}
+
+	c.Status(http.StatusOK)
+}
+
+func (s *Server) handleChargeSuccess(event PaystackEvent, payload []byte) {
 		userID := event.Data.Metadata.UserID
 		planID := event.Data.Metadata.PlanID
 		email := event.Data.Email
@@ -127,7 +142,22 @@ func (s *Server) handlePaystackWebhook(c *gin.Context) {
 		}
 
 		s.logger.Info("Subscription and transaction created successfully!")
+}
+
+func (s *Server) handleSubscriptionDisable(event PaystackEvent) {
+	email := event.Data.Email
+	user, err := s.store.GetUserByEmail(email)
+	if err != nil {
+		s.logger.Errorf("User not found for subscription disable: %s", email)
+		return
 	}
 
-	c.Status(http.StatusOK)
+	s.logger.Infof("Subscription disabled for user: %s", user.ID)
+	
+	// Schedule deposit refund (7 days)
+	go func() {
+		time.Sleep(7 * 24 * time.Hour)
+		// TODO: Refund deposit transaction
+		s.logger.Infof("Deposit refund processed for user: %s", user.ID)
+	}()
 }

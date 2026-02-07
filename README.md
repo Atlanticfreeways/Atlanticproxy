@@ -98,12 +98,41 @@ Residential Proxies (195+ countries)
 
 ## 💰 Pricing
 
-| Plan | Price | Data | Features |
-|------|-------|------|----------|
-| **Starter** | Free 7 days + $0.40/GB | 15GB | Basic features |
-| **Personal** | $19.99/mo | 50GB | City targeting, custom rules |
-| **Team** | $99.99/mo | 500GB | 5 members, SLA, priority support |
-| **Enterprise** | Custom | 1TB+ | White-label, SSO, 24/7 support |
+**Premium Residential Proxies with Town-Level Targeting at Every Tier**
+
+### Pay-As-You-Go (No Commitment)
+```
+$1.20/hour - All Features + All Protocols
+```
+- ✅ Premium residential IPs (72M+ pool)
+- ✅ Town/city-level targeting + ISP selection
+- ✅ All protocols (HTTP/HTTPS, SOCKS5, Shadowsocks)
+- ✅ Kill switch + leak protection
+- ✅ 4 rotation modes + ad-blocking
+- ✅ Unlimited data during active hours
+- ❌ API access (Personal+ only)
+
+**Packages:** 10hrs ($12) | 25hrs ($27) | 50hrs ($54) | 100hrs ($102)
+
+### Subscription Plans
+
+| Plan | Price | Data | Key Features |
+|------|-------|------|-------------|
+| **Starter** | $6.99/wk | 10GB/wk | Premium residential IPs, town-level targeting, HTTPS, $1 deposit |
+| **PAYG** | $1.20/hr | Unlimited* | + All protocols, ISP selection, no commitment |
+| **Personal** | $29/mo | 50GB | + API access, protocol selection UI, unlimited hours |
+| **Team** | $99/mo | 500GB | + 5 seats, team management, priority support |
+| **Enterprise** | Custom | 1TB+ | + Dedicated IPs, white-label, 99.99% SLA |
+
+*Unlimited during active hours
+
+**Starter Plan Details:**
+- $1 refundable deposit required
+- $6.99 charged instantly for first week
+- Auto-renews weekly at $6.99
+- Cancel anytime, deposit refunded in 5-7 days
+
+[Full Pricing Details →](PRICING_STRATEGY_V2.md)
 
 ---
 

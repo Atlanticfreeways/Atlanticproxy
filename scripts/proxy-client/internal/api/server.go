@@ -212,6 +212,8 @@ func (s *Server) setupRoutes() {
 	s.router.POST("/api/billing/cancel", s.handleCancelSubscription)
 	s.router.GET("/api/billing/usage", s.handleGetUsage)
 	s.router.GET("/api/billing/invoices/:id", s.handleDownloadInvoice)
+	s.router.POST("/api/billing/trial/start", s.handleStartTrial)
+	s.router.GET("/api/billing/status", s.handleGetBillingStatus)
 
 	// Security API
 	s.router.GET("/api/security/status", s.handleGetSecurityStatus)
@@ -223,6 +225,12 @@ func (s *Server) setupRoutes() {
 	s.router.GET("/api/rotation/config", s.handleGetRotationConfig)
 	s.router.POST("/api/rotation/config", s.handleUpdateRotationConfig)
 	s.router.POST("/api/rotation/session/new", s.handleForceRotation) // Override existing if any
+
+	// Locations API
+	s.router.GET("/api/locations/available", s.handleGetLocations)
+
+	// Payment verification
+	s.router.GET("/api/billing/verify", s.handleVerifyPayment)
 
 	// Compatibility Routes
 	s.router.GET("/api/rotation/session/current", s.handleGetCurrentSession)

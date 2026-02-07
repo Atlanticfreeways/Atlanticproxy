@@ -54,6 +54,23 @@ export interface RotationStats {
     }>;
 }
 
+export interface Location {
+    country_code: string;
+    country_name: string;
+    cities: string[];
+    available: boolean;
+}
+
+export interface SecurityStatus {
+    anonymity_score: number;
+    ip_leak_detected: boolean;
+    dns_leak_detected: boolean;
+    webrtc_leak_detected: boolean;
+    strict_killswitch: boolean;
+    detected_dns: string[];
+    message: string;
+}
+
 export interface User {
     id: string;
     email: string;
@@ -382,6 +399,19 @@ class ApiClient {
             const err = await response.json();
             throw new Error(err.error || 'Failed to create checkout session');
         }
+        return response.json();
+    }
+
+    async getLocations(): Promise<Location[]> {
+        const response = await this.request('/api/locations/available');
+        if (!response.ok) throw new Error('Failed to fetch locations');
+        const data = await response.json();
+        return data.locations;
+    }
+
+    async getSecurityStatus(): Promise<SecurityStatus> {
+        const response = await this.request('/api/security/status');
+        if (!response.ok) throw new Error('Failed to fetch security status');
         return response.json();
     }
 }

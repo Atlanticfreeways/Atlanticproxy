@@ -124,3 +124,27 @@ func (s *Server) handleSetGeo(c *gin.Context) {
 	// For MVP we just force update everything via the main endpoint
 	c.JSON(http.StatusOK, gin.H{"message": "Updated (Partial compatibility)"})
 }
+
+// LocationData represents available proxy locations
+type LocationData struct {
+	CountryCode string   `json:"country_code"`
+	CountryName string   `json:"country_name"`
+	Cities      []string `json:"cities,omitempty"`
+	Available   bool     `json:"available"`
+}
+
+func (s *Server) handleGetLocations(c *gin.Context) {
+	locations := []LocationData{
+		{"US", "United States", []string{"New York", "Los Angeles", "Chicago"}, true},
+		{"GB", "United Kingdom", []string{"London", "Manchester"}, true},
+		{"DE", "Germany", []string{"Berlin", "Munich"}, true},
+		{"FR", "France", []string{"Paris", "Lyon"}, true},
+		{"CA", "Canada", []string{"Toronto", "Vancouver"}, true},
+		{"AU", "Australia", []string{"Sydney", "Melbourne"}, true},
+		{"JP", "Japan", []string{"Tokyo", "Osaka"}, true},
+		{"SG", "Singapore", []string{}, true},
+		{"NL", "Netherlands", []string{"Amsterdam"}, true},
+		{"BR", "Brazil", []string{"São Paulo", "Rio de Janeiro"}, true},
+	}
+	c.JSON(http.StatusOK, gin.H{"locations": locations, "total": len(locations)})
+}

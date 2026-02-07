@@ -6,6 +6,9 @@ import { apiClient } from '@/lib/api';
 
 const navItems = [
     { label: 'Overview', href: '/dashboard' },
+    { label: 'Locations', href: '/dashboard/locations' },
+    { label: 'Protocol', href: '/dashboard/protocol' },
+    { label: 'API', href: '/dashboard/api' },
     { label: 'Statistics', href: '/dashboard/statistics' },
     { label: 'Servers', href: '/dashboard/servers' },
     { label: 'IP Rotation', href: '/dashboard/rotation' },

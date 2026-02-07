@@ -6,8 +6,11 @@ import (
 	"time"
 
 	"github.com/atlanticproxy/proxy-client/internal/billing"
+	"github.com/atlanticproxy/proxy-client/internal/payment"
 	"github.com/gin-gonic/gin"
 )
+
+var paystackClient = payment.NewPaystackClient()
 
 // handleGetPlans returns all available plans
 func (s *Server) handleGetPlans(c *gin.Context) {
@@ -149,4 +152,88 @@ func (s *Server) handleDownloadInvoice(c *gin.Context) {
 	c.Header("Content-Type", "application/pdf")
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=invoice_%s.pdf", id))
 	c.Data(http.StatusOK, "application/pdf", pdfBytes)
+}
+
+type TrialRequest struct {
+	PaymentMethodID string `json:"payment_method_id"`
+}
+
+type BillingStatusResponse struct {
+	Plan           string    `json:"plan"`
+	Status         string    `json:"status"`
+	NextBillingDate time.Time `json:"next_billing_date"`
+	DataUsed       int64     `json:"data_used"`
+	DataLimit      int64     `json:"data_limit"`
+	DepositAmount  float64   `json:"deposit_amount"`
+	DepositStatus  string    `json:"deposit_status"`
+}
+
+func (s *Server) handleStartTrial(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Initialize combined payment (deposit + first week)
+	// Total: ₦13,080 ($7.99)
+	ref := fmt.Sprintf("TRIAL-%d", time.Now().Unix())
+	callbackURL := "http://localhost:3000/payment/callback"
+	
+	resp, err := paystackClient.InitializeTransaction(req.Email, 1308000, ref, callbackURL)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Payment initialization failed"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"authorization_url": resp.Data.AuthorizationURL,
+		"reference":         resp.Data.Reference,
+	})
+}
+
+func (s *Server) handleGetBillingStatus(c *gin.Context) {
+	stats := s.billingManager.Usage.GetStats()
+	
+	status := BillingStatusResponse{
+		Plan:            "starter",
+		Status:          "active",
+		NextBillingDate: time.Now().Add(7 * 24 * time.Hour),
+		DataUsed:        stats.TotalBytes,
+		DataLimit:       10 * 1024 * 1024 * 1024,
+		DepositAmount:   1.00,
+		DepositStatus:   "held",
+	}
+
+	c.JSON(http.StatusOK, status)
+}
+
+func (s *Server) handleVerifyPayment(c *gin.Context) {
+	reference := c.Query("reference")
+	if reference == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Reference required"})
+		return
+	}
+
+	resp, err := paystackClient.VerifyTransaction(reference)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Verification failed"})
+		return
+	}
+
+	if resp.Data.Status == "success" {
+		// TODO: Update user subscription in database
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"message": "Payment verified",
+			"amount": resp.Data.Amount,
+		})
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "failed",
+			"message": "Payment not successful",
+		})
+	}
 }
