@@ -15,6 +15,12 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Clear ports first
+echo "🧹 Clearing ports..."
+lsof -ti:8082 | xargs kill -9 2>/dev/null || true
+lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+sleep 1
+
 # Check if .env exists
 if [ ! -f "scripts/proxy-client/.env" ]; then
     echo -e "${RED}❌ .env file not found!${NC}"
