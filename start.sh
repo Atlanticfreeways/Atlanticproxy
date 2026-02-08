@@ -19,6 +19,7 @@ NC='\033[0m' # No Color
 echo "🧹 Clearing ports..."
 lsof -ti:8082 | xargs kill -9 2>/dev/null || true
 lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+lsof -ti:5053 | xargs kill -9 2>/dev/null || true
 sleep 1
 
 # Check if .env exists
