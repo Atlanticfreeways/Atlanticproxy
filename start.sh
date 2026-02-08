@@ -52,7 +52,12 @@ cd ../..
 
 # Wait for backend to start
 echo "⏳ Waiting for backend to start..."
-sleep 5
+for i in {1..15}; do
+    sleep 1
+    if curl -s http://localhost:8082/health > /dev/null 2>&1; then
+        break
+    fi
+done
 
 # Check if backend is running
 if ! curl -s http://localhost:8082/health > /dev/null 2>&1; then
