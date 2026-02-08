@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha512"
 	"encoding/hex"
@@ -14,6 +15,20 @@ import (
 	"github.com/atlanticproxy/proxy-client/internal/storage"
 	"github.com/gin-gonic/gin"
 )
+
+type PaystackEvent struct {
+	Event string `json:"event"`
+	Data  struct {
+		Reference string `json:"reference"`
+		Amount    int    `json:"amount"`
+		Email     string `json:"email"`
+		Status    string `json:"status"`
+		Metadata  struct {
+			PlanID string `json:"plan_id"`
+			UserID string `json:"user_id"`
+		} `json:"metadata"`
+	} `json:"data"`
+}
 
 // handleStripeWebhook processes incoming webhook events from Stripe
 // handlePaystackWebhook processes incoming webhook events from Paystack
@@ -55,20 +70,6 @@ func (s *Server) handlePaystackWebhook(c *gin.Context) {
 	}
 
 	// 2. Parse Event
-	type PaystackEvent struct {
-		Event string `json:"event"`
-		Data  struct {
-			Reference string `json:"reference"`
-			Amount    int    `json:"amount"`
-			Email     string `json:"email"`
-			Status    string `json:"status"`
-			Metadata  struct {
-				PlanID string `json:"plan_id"`
-				UserID string `json:"user_id"`
-			} `json:"metadata"`
-		} `json:"data"`
-	}
-
 	var event PaystackEvent
 	if err := json.Unmarshal(payload, &event); err != nil {
 		s.logger.Errorf("Failed to parse webhook JSON: %v", err)
@@ -81,7 +82,7 @@ func (s *Server) handlePaystackWebhook(c *gin.Context) {
 	// 3. Handle Events
 	switch event.Event {
 	case "charge.success":
-		s.handleChargeSuccess(event, payload)
+		s.handleChargeSuccess(c, event)
 	case "subscription.create":
 		s.logger.Infof("Subscription created: %s", event.Data.Email)
 	case "subscription.disable":
@@ -93,7 +94,7 @@ func (s *Server) handlePaystackWebhook(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (s *Server) handleChargeSuccess(event PaystackEvent, payload []byte) {
+func (s *Server) handleChargeSuccess(c *gin.Context, event PaystackEvent) {
 		userID := event.Data.Metadata.UserID
 		planID := event.Data.Metadata.PlanID
 		email := event.Data.Email

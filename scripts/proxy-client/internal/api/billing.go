@@ -215,7 +215,7 @@ func (s *Server) handleGetBillingStatus(c *gin.Context) {
 		Plan:            "starter",
 		Status:          "active",
 		NextBillingDate: time.Now().Add(7 * 24 * time.Hour),
-		DataUsed:        stats.TotalBytes,
+		DataUsed:        stats.DataTransferred,
 		DataLimit:       10 * 1024 * 1024 * 1024,
 		DepositAmount:   1.00,
 		DepositStatus:   "held",
