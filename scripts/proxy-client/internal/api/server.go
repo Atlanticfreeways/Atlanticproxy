@@ -207,25 +207,25 @@ func (s *Server) setupRoutes() {
 
 	// Billing API
 	s.router.GET("/api/billing/plans", s.handleGetPlans)
-	s.router.GET("/api/billing/subscription", s.handleGetSubscription)
-	s.router.POST("/api/billing/subscribe", s.handleSubscribe)
-	s.router.POST("/api/billing/checkout", s.handleCreateCheckoutSession)
-	s.router.POST("/api/billing/cancel", s.handleCancelSubscription)
-	s.router.GET("/api/billing/usage", s.handleGetUsage)
-	s.router.GET("/api/billing/invoices/:id", s.handleDownloadInvoice)
+	s.router.GET("/api/billing/subscription", middleware.JWTAuth(), s.handleGetSubscription)
+	s.router.POST("/api/billing/subscribe", middleware.JWTAuth(), s.handleSubscribe)
+	s.router.POST("/api/billing/checkout", middleware.JWTAuth(), s.handleCreateCheckoutSession)
+	s.router.POST("/api/billing/cancel", middleware.JWTAuth(), s.handleCancelSubscription)
+	s.router.GET("/api/billing/usage", middleware.JWTAuth(), s.handleGetUsage)
+	s.router.GET("/api/billing/invoices/:id", middleware.JWTAuth(), s.handleDownloadInvoice)
 	s.router.POST("/api/billing/trial/start", s.handleStartTrial)
-	s.router.GET("/api/billing/status", s.handleGetBillingStatus)
+	s.router.GET("/api/billing/status", middleware.JWTAuth(), s.handleGetBillingStatus)
 
 	// Security API
-	s.router.GET("/api/security/status", s.handleGetSecurityStatus)
+	s.router.GET("/api/security/status", middleware.JWTAuth(), s.handleGetSecurityStatus)
 
 	// Protocol API
-	s.router.GET("/api/protocol/credentials", s.handleGetProtocolCredentials)
+	s.router.GET("/api/protocol/credentials", middleware.JWTAuth(), s.handleGetProtocolCredentials)
 
 	// Rotation API
-	s.router.GET("/api/rotation/config", s.handleGetRotationConfig)
-	s.router.POST("/api/rotation/config", s.handleUpdateRotationConfig)
-	s.router.POST("/api/rotation/session/new", s.handleForceRotation) // Override existing if any
+	s.router.GET("/api/rotation/config", middleware.JWTAuth(), s.handleGetRotationConfig)
+	s.router.POST("/api/rotation/config", middleware.JWTAuth(), s.handleUpdateRotationConfig)
+	s.router.POST("/api/rotation/session/new", middleware.JWTAuth(), s.handleForceRotation) // Override existing if any
 
 	// Locations API
 	s.router.GET("/api/locations/available", s.handleGetLocations)
