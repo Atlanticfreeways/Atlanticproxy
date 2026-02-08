@@ -60,10 +60,14 @@ func (s *Service) Run(ctx context.Context) error {
 	s.logger.Info("Initializing AtlanticProxy components...")
 	s.logger.Infof("Oxylabs Username: %s", mask(s.config.Proxy.OxylabsUsername))
 
-	// Initialize kill switch first - safety first
-	s.killswitch = killswitch.New(s.config.KillSwitch)
-	if err := s.killswitch.Enable(); err != nil {
-		return err
+	// Initialize kill switch first - safety first (skip in dev mode)
+	if os.Getuid() == 0 {
+		s.killswitch = killswitch.New(s.config.KillSwitch)
+		if err := s.killswitch.Enable(); err != nil {
+			s.logger.Warnf("Failed to enable kill switch: %v", err)
+		}
+	} else {
+		s.logger.Warn("Kill switch disabled (requires root privileges)")
 	}
 
 	// Initialize TUN interface
