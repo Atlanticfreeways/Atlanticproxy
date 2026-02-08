@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/atlanticproxy/proxy-client/internal/billing"
 	"github.com/atlanticproxy/proxy-client/internal/interceptor"
 	"github.com/atlanticproxy/proxy-client/internal/killswitch"
+	"github.com/atlanticproxy/proxy-client/internal/middleware"
 	"github.com/atlanticproxy/proxy-client/internal/proxy"
 	"github.com/atlanticproxy/proxy-client/internal/rotation"
 	"github.com/atlanticproxy/proxy-client/internal/storage"
@@ -69,6 +71,7 @@ func NewServer(ab *adblock.Engine, ks *killswitch.Guardian, it *interceptor.TunI
 	router := gin.New()
 
 	// Custom middleware stack (order matters)
+	router.Use(middleware.PanicRecovery(logrus.StandardLogger()))
 	router.Use(RecoveryMiddleware(logrus.StandardLogger()))
 	router.Use(RequestIDMiddleware())
 	router.Use(LoggingMiddleware(logrus.StandardLogger()))
