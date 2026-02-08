@@ -12,6 +12,7 @@ echo ""
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
+YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Check if .env exists
@@ -35,20 +36,23 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
-# Start Backend
+# Start Backend (without sudo - kill switch will be disabled)
 echo -e "${BLUE}📦 Starting Backend (Go)...${NC}"
+echo -e "${YELLOW}⚠️  Note: Kill switch disabled (requires sudo)${NC}"
 cd scripts/proxy-client
-go run ./cmd/service &
+go run ./cmd/service 2>&1 | grep -v "WARNING" | grep -v "kill switch" &
 BACKEND_PID=$!
 cd ../..
 
 # Wait for backend to start
 echo "⏳ Waiting for backend to start..."
-sleep 3
+sleep 5
 
 # Check if backend is running
-if ! curl -s http://localhost:8082/health > /dev/null; then
+if ! curl -s http://localhost:8082/health > /dev/null 2>&1; then
     echo -e "${RED}❌ Backend failed to start${NC}"
+    echo "Checking logs..."
+    sleep 2
     kill $BACKEND_PID 2>/dev/null || true
     exit 1
 fi
@@ -58,7 +62,7 @@ echo ""
 # Start Frontend
 echo -e "${BLUE}🎨 Starting Frontend (Next.js)...${NC}"
 cd atlantic-dashboard
-npm run dev &
+npm run dev > /dev/null 2>&1 &
 FRONTEND_PID=$!
 cd ..
 
