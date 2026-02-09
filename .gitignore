@@ -15,13 +15,19 @@ bin/
 # Go workspace file
 go.work
 
-# Environment files
+# Environment files (sensitive)
 .env
 .env.local
 .env.production
 .env.staging
+.env.prod
+scripts/proxy-client/.env
+atlantic-dashboard/.env
+atlantic-dashboard/.env.local
 
-# Allow development env (contains dev API keys)
+# Allow templates and development
+!.env.example
+!.env.*.example
 !.env.development
 
 # API Keys and Secrets

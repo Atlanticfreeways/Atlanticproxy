@@ -17,7 +17,7 @@ NC='\033[0m' # No Color
 
 # Clear ports first
 echo "🧹 Clearing ports..."
-lsof -ti:8082 | xargs kill -9 2>/dev/null || true
+lsof -ti:8765 | xargs kill -9 2>/dev/null || true
 lsof -ti:3000 | xargs kill -9 2>/dev/null || true
 lsof -ti:5053 | xargs kill -9 2>/dev/null || true
 sleep 1
@@ -55,13 +55,13 @@ cd ../..
 echo "⏳ Waiting for backend to start..."
 for i in {1..15}; do
     sleep 1
-    if curl -s http://localhost:8082/health > /dev/null 2>&1; then
+    if curl -s http://localhost:8765/health > /dev/null 2>&1; then
         break
     fi
 done
 
 # Check if backend is running
-if ! curl -s http://localhost:8082/health > /dev/null 2>&1; then
+if ! curl -s http://localhost:8765/health > /dev/null 2>&1; then
     echo -e "${RED}❌ Backend failed to start${NC}"
     echo "Checking logs..."
     sleep 2
@@ -90,9 +90,9 @@ echo -e "${BLUE}🌐 Access Points:${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "  Frontend:  http://localhost:3000"
-echo "  Backend:   http://localhost:8082"
-echo "  Health:    http://localhost:8082/health"
-echo "  Metrics:   http://localhost:8082/metrics"
+echo "  Backend:   http://localhost:8765"
+echo "  Health:    http://localhost:8765/health"
+echo "  Metrics:   http://localhost:8765/metrics"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${BLUE}🧪 Test Endpoints:${NC}"

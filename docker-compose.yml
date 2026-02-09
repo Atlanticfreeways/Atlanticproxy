@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  atlantic-proxy:
+    build: ./scripts/proxy-client
+    image: atlanticproxy:latest
+    container_name: atlantic-proxy
+    restart: always
+    ports:
+      - "8082:8082"
+      - "8080:8080"
+      - "1080:1080"
+    volumes:
+      - atlantic_data:/data
+    env_file:
+      - ./scripts/proxy-client/.env
+    networks:
+      - atlantic_net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  dashboard:
+    build: ./atlantic-dashboard
+    container_name: atlantic-dashboard
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://atlantic-proxy:8082
+    depends_on:
+      - atlantic-proxy
+    networks:
+      - atlantic_net
+
+volumes:
+  atlantic_data:
+    driver: local
+
+networks:
+  atlantic_net:
+    driver: bridge
