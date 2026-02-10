@@ -59,9 +59,10 @@ export default function DashboardPage() {
             if (status?.connected) {
                 await apiClient.disconnect();
             } else {
-                await apiClient.connect("test_user"); // Endpoint fallback for now
+                await apiClient.connect("test_user");
             }
-            // Status will be updated via WebSocket subscriber or next poll
+            const newStatus = await apiClient.getStatus();
+            setStatus(newStatus);
         } catch (error) {
             console.error('Connection toggle failed:', error);
         } finally {
@@ -73,7 +74,8 @@ export default function DashboardPage() {
         setIsRotating(true);
         try {
             await apiClient.rotateIP();
-            // Status will update via WS
+            const newStatus = await apiClient.getStatus();
+            setStatus(newStatus);
         } catch (error) {
             console.error('Rotation failed:', error);
         } finally {

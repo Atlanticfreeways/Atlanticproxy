@@ -132,4 +132,10 @@
     .glass-card {
         @apply bg-neutral-900/60 backdrop-blur-lg border-neutral-800/80;
     }
+    
+    .bg-grid-pattern {
+        background-image: linear-gradient(to right, rgb(0 0 0 / 0.1) 1px, transparent 1px),
+                          linear-gradient(to bottom, rgb(0 0 0 / 0.1) 1px, transparent 1px);
+        background-size: 40px 40px;
+    }
 }

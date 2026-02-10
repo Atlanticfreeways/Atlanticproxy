@@ -4,31 +4,21 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 )
 
 type PaystackClient struct {
-	secretKey string
-	baseURL   string
-}
-
-func NewPaystackClient() *PaystackClient {
-	secretKey := os.Getenv("PAYSTACK_SECRET_KEY")
-	if secretKey == "" {
-		secretKey = "sk_test_dac14730d4acd736b4a70ebfb24cdeeded8e22d0" // Fallback for dev only
-	}
-	return &PaystackClient{
-		secretKey: secretKey,
-		baseURL:   "https://api.paystack.co",
-	}
+	SecretKey string
+	BaseURL   string
 }
 
 type InitializeRequest struct {
-	Email     string `json:"email"`
-	Amount    int    `json:"amount"`
-	Reference string `json:"reference,omitempty"`
-	CallbackURL string `json:"callback_url,omitempty"`
+	Email    string `json:"email"`
+	Amount   int    `json:"amount"` // in kobo (NGN) or cents (USD)
+	Currency string `json:"currency"`
+	Metadata map[string]interface{} `json:"metadata"`
 }
 
 type InitializeResponse struct {
@@ -41,85 +31,84 @@ type InitializeResponse struct {
 	} `json:"data"`
 }
 
-func (p *PaystackClient) InitializeTransaction(email string, amount int, reference, callbackURL string) (*InitializeResponse, error) {
-	req := InitializeRequest{
-		Email:       email,
-		Amount:      amount,
-		Reference:   reference,
-		CallbackURL: callbackURL,
-	}
-
-	body, _ := json.Marshal(req)
-	httpReq, _ := http.NewRequest("POST", p.baseURL+"/transaction/initialize", bytes.NewBuffer(body))
-	httpReq.Header.Set("Authorization", "Bearer "+p.secretKey)
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(httpReq)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result InitializeResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-
-	if !result.Status {
-		return nil, fmt.Errorf("paystack error: %s", result.Message)
-	}
-
-	return &result, nil
-}
-
 type VerifyResponse struct {
 	Status  bool   `json:"status"`
 	Message string `json:"message"`
 	Data    struct {
-		Status    string `json:"status"`
 		Reference string `json:"reference"`
 		Amount    int    `json:"amount"`
+		Status    string `json:"status"`
 		Customer  struct {
 			Email string `json:"email"`
 		} `json:"customer"`
+		Metadata map[string]interface{} `json:"metadata"`
 	} `json:"data"`
 }
 
-func (p *PaystackClient) VerifyTransaction(reference string) (*VerifyResponse, error) {
-	httpReq, _ := http.NewRequest("GET", p.baseURL+"/transaction/verify/"+reference, nil)
-	httpReq.Header.Set("Authorization", "Bearer "+p.secretKey)
+func NewPaystackClient() *PaystackClient {
+	return &PaystackClient{
+		SecretKey: os.Getenv("PAYSTACK_SECRET_KEY"),
+		BaseURL:   "https://api.paystack.co",
+	}
+}
 
-	resp, err := http.DefaultClient.Do(httpReq)
+func (c *PaystackClient) InitializeTransaction(req InitializeRequest) (*InitializeResponse, error) {
+	body, _ := json.Marshal(req)
+	
+	httpReq, err := http.NewRequest("POST", c.BaseURL+"/transaction/initialize", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	
+	httpReq.Header.Set("Authorization", "Bearer "+c.SecretKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+	
+	client := &http.Client{}
+	resp, err := client.Do(httpReq)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
-	var result VerifyResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	
+	respBody, _ := io.ReadAll(resp.Body)
+	
+	var result InitializeResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, err
 	}
-
+	
+	if !result.Status {
+		return nil, fmt.Errorf("paystack error: %s", result.Message)
+	}
+	
 	return &result, nil
 }
 
-type RefundRequest struct {
-	Transaction string `json:"transaction"`
-}
-
-func (p *PaystackClient) RefundTransaction(reference string) error {
-	req := RefundRequest{Transaction: reference}
-	body, _ := json.Marshal(req)
-
-	httpReq, _ := http.NewRequest("POST", p.baseURL+"/refund", bytes.NewBuffer(body))
-	httpReq.Header.Set("Authorization", "Bearer "+p.secretKey)
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(httpReq)
+func (c *PaystackClient) VerifyTransaction(reference string) (*VerifyResponse, error) {
+	httpReq, err := http.NewRequest("GET", c.BaseURL+"/transaction/verify/"+reference, nil)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	
+	httpReq.Header.Set("Authorization", "Bearer "+c.SecretKey)
+	
+	client := &http.Client{}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, err
 	}
 	defer resp.Body.Close()
-
-	return nil
+	
+	respBody, _ := io.ReadAll(resp.Body)
+	
+	var result VerifyResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, err
+	}
+	
+	if !result.Status {
+		return nil, fmt.Errorf("paystack error: %s", result.Message)
+	}
+	
+	return &result, nil
 }
