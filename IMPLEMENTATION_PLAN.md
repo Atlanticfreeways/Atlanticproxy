@@ -104,22 +104,22 @@
 - [x] Add code coverage job (codecov)
 - [x] Add security scan job (gosec, npm audit)
 - [x] Add Docker build job
-- [ ] Test pipeline with dummy PR
-- [ ] Fix any pipeline failures
+- [x] Test pipeline with dummy PR
+- [x] Fix any pipeline failures
 
 ### Tuesday (Day 2) - PostgreSQL Migration
 **Morning: Setup**
-- [ ] Sign up for PostgreSQL hosting (Supabase/Railway)
-- [ ] Create production database
-- [ ] Update connection string in `.env`
-- [ ] Install PostgreSQL driver: `go get github.com/lib/pq`
+- [x] Sign up for PostgreSQL hosting (Supabase/Railway)
+- [x] Create production database
+- [x] Update connection string in `.env`
+- [x] Install PostgreSQL driver: `go get github.com/lib/pq`
 
 **Afternoon: Migration**
-- [ ] Run migration script: `001_initial_schema.sql`
-- [ ] Migrate data from SQLite to PostgreSQL
-- [ ] Configure connection pooling (max 25 conns)
-- [ ] Test all database operations
-- [ ] Update Docker Compose with PostgreSQL
+- [x] Run migration script: `001_initial_schema.sql`
+- [x] Migrate data from SQLite to PostgreSQL
+- [x] Configure connection pooling (max 25 conns)
+- [x] Test all database operations
+- [x] Update Docker Compose with PostgreSQL
 
 ### Wednesday (Day 3) - Monitoring Stack (Part 1)
 **Morning: Prometheus + Grafana**

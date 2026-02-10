@@ -1,6 +1,27 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: atlantic-postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=atlanticproxy
+      - POSTGRES_USER=atlantic
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/001_postgresql.sql:/docker-entrypoint-initdb.d/001_init.sql
+    networks:
+      - atlantic_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlantic"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   atlantic-proxy:
     build: .
     image: atlanticproxy:latest
@@ -14,15 +35,17 @@ services:
       - atlantic_data:/data
     environment:
       - SERVER_PORT=8082
-      - DATABASE_PATH=/data/atlantic.db
+      - DATABASE_URL=postgres://atlantic:${POSTGRES_PASSWORD:-changeme}@postgres:5432/atlanticproxy?sslmode=disable
       - LOG_LEVEL=info
-      # Inject credentials via .env file or environment
       - OXYLABS_USERNAME=${OXYLABS_USERNAME}
       - OXYLABS_PASSWORD=${OXYLABS_PASSWORD}
       - PAYSTACK_SECRET_KEY=${PAYSTACK_SECRET_KEY}
       - PAYSTACK_PUBLIC_KEY=${PAYSTACK_PUBLIC_KEY}
     networks:
       - atlantic_net
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/health"]
       interval: 30s
@@ -31,6 +54,8 @@ services:
 
 volumes:
   atlantic_data:
+    driver: local
+  postgres_data:
     driver: local
 
 networks:
