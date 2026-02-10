@@ -23,20 +23,20 @@
 
 ### Tuesday (Day 2) - Usage & Servers Pages
 **Morning: Usage Page**
-- [ ] Create `/app/dashboard/usage/components/` folder
-- [ ] Build `UsageOverview.tsx` (current usage vs limit)
-- [ ] Build `UsageGraph.tsx` (daily/weekly/monthly toggle)
-- [ ] Build `ProtocolUsage.tsx` (breakdown by protocol)
-- [ ] Connect to `/api/billing/usage` endpoint
-- [ ] Add quota warnings (80%, 90%, 100%)
+- [x] Create `/app/dashboard/usage/components/` folder
+- [x] Build `UsageOverview.tsx` (current usage vs limit)
+- [x] Build `UsageGraph.tsx` (daily/weekly/monthly toggle)
+- [x] Build `ProtocolUsage.tsx` (breakdown by protocol)
+- [x] Connect to `/api/billing/usage` endpoint
+- [x] Add quota warnings (80%, 90%, 100%)
 
 **Afternoon: Servers Page**
-- [ ] Create `/app/dashboard/servers/components/` folder
-- [ ] Build `ServerList.tsx` (table with status, latency, load)
-- [ ] Build `ServerCard.tsx` (individual server component)
-- [ ] Connect to `/api/servers/list` endpoint
-- [ ] Add connect button functionality
-- [ ] Add server status indicators (online/offline)
+- [x] Create `/app/dashboard/servers/components/` folder
+- [x] Build `ServerList.tsx` (table with status, latency, load)
+- [x] Build `ServerCard.tsx` (individual server component)
+- [x] Connect to `/api/servers/list` endpoint
+- [x] Add connect button functionality
+- [x] Add server status indicators (online/offline)
 
 ### Wednesday (Day 3) - Settings & Activity Pages
 **Morning: Settings Page**
