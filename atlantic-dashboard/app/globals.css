@@ -138,4 +138,8 @@
                           linear-gradient(to bottom, rgb(0 0 0 / 0.1) 1px, transparent 1px);
         background-size: 40px 40px;
     }
+    
+    .opacity-3 {
+        opacity: 0.03;
+    }
 }
