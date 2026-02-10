@@ -40,21 +40,21 @@
 
 ### Wednesday (Day 3) - Settings & Activity Pages
 **Morning: Settings Page**
-- [ ] Create `/app/dashboard/settings/components/` folder
-- [ ] Build `AccountSettings.tsx` (email, password change)
-- [ ] Build `PreferencesSettings.tsx` (theme, language, notifications)
-- [ ] Build `SecuritySettings.tsx` (2FA, sessions)
-- [ ] Connect to `/api/settings` endpoints
-- [ ] Add form validation
-- [ ] Add success/error toasts
+- [x] Create `/app/dashboard/settings/components/` folder
+- [x] Build `AccountSettings.tsx` (email, password change)
+- [x] Build `PreferencesSettings.tsx` (theme, language, notifications)
+- [x] Build `SecuritySettings.tsx` (2FA, sessions)
+- [x] Connect to `/api/settings` endpoints
+- [x] Add form validation
+- [x] Add success/error toasts
 
 **Afternoon: Activity Page**
-- [ ] Create `/app/dashboard/activity/components/` folder
-- [ ] Build `ActivityLog.tsx` (table with filters)
-- [ ] Build `ActivityFilters.tsx` (type, date range)
-- [ ] Connect to `/api/activity/log` endpoint
-- [ ] Add pagination (20 items per page)
-- [ ] Add export functionality (CSV)
+- [x] Create `/app/dashboard/activity/components/` folder
+- [x] Build `ActivityLog.tsx` (table with filters)
+- [x] Build `ActivityFilters.tsx` (type, date range)
+- [x] Connect to `/api/activity/log` endpoint
+- [x] Add pagination (20 items per page)
+- [x] Add export functionality (CSV)
 
 ### Thursday (Day 4) - Backend-Frontend Wiring
 **Morning: Missing API Endpoints**

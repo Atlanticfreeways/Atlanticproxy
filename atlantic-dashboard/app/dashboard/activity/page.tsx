@@ -1,100 +1,69 @@
 'use client';
 
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { ActivityLog, ActivityFilters } from './components/ActivityLog';
 
 export default function ActivityPage() {
-    const [filter, setFilter] = useState('');
+    const [page, setPage] = useState(1);
+    const [activities] = useState([
+        { id: '1', type: 'connection' as const, description: 'Connected to US East (New York)', timestamp: '2 min ago', status: 'success' as const },
+        { id: '2', type: 'rotation' as const, description: 'IP rotated automatically', timestamp: '15 min ago', status: 'success' as const },
+        { id: '3', type: 'security' as const, description: 'Kill switch activated', timestamp: '32 min ago', status: 'warning' as const },
+        { id: '4', type: 'connection' as const, description: 'Connected to EU West (London)', timestamp: '1 hour ago', status: 'success' as const },
+        { id: '5', type: 'billing' as const, description: 'Payment processed successfully', timestamp: '2 hours ago', status: 'success' as const },
+        { id: '6', type: 'connection' as const, description: 'Connection failed - retrying', timestamp: '3 hours ago', status: 'error' as const },
+        { id: '7', type: 'rotation' as const, description: 'Manual IP rotation requested', timestamp: '4 hours ago', status: 'success' as const },
+        { id: '8', type: 'security' as const, description: 'Leak test passed', timestamp: '5 hours ago', status: 'success' as const },
+    ]);
 
-    const activities = [
-        { id: 1, time: '2 min ago', action: 'Connected', location: 'United States', ip: '192.168.1.1', status: 'success' },
-        { id: 2, time: '15 min ago', action: 'IP Rotated', location: 'United Kingdom', ip: '192.168.1.2', status: 'success' },
-        { id: 3, time: '32 min ago', action: 'Protocol Changed', location: 'Germany', ip: '192.168.1.3', status: 'success' },
-        { id: 4, time: '1 hour ago', action: 'Connected', location: 'France', ip: '192.168.1.4', status: 'success' },
-        { id: 5, time: '2 hours ago', action: 'Disconnected', location: 'Canada', ip: '192.168.1.5', status: 'info' },
-        { id: 6, time: '3 hours ago', action: 'Connection Failed', location: 'Australia', ip: '192.168.1.6', status: 'error' },
-        { id: 7, time: '4 hours ago', action: 'Connected', location: 'Japan', ip: '192.168.1.7', status: 'success' },
-        { id: 8, time: '5 hours ago', action: 'IP Rotated', location: 'Singapore', ip: '192.168.1.8', status: 'success' },
-    ];
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'success': return 'bg-green-500';
-            case 'error': return 'bg-red-500';
-            case 'info': return 'bg-blue-500';
-            default: return 'bg-neutral-500';
-        }
+    const handleFilterChange = (type: string, dateRange: string) => {
+        console.log('Filter changed:', type, dateRange);
+        // TODO: Implement filtering
     };
 
-    const getStatusIcon = (status: string) => {
-        switch (status) {
-            case 'success': return '✓';
-            case 'error': return '✗';
-            case 'info': return 'ℹ';
-            default: return '•';
-        }
+    const handleExport = () => {
+        const csv = activities.map(a => `${a.timestamp},${a.type},${a.description},${a.status}`).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'activity-log.csv';
+        a.click();
     };
-
-    const filtered = activities.filter(
-        (a) =>
-            a.action.toLowerCase().includes(filter.toLowerCase()) ||
-            a.location.toLowerCase().includes(filter.toLowerCase())
-    );
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold text-white">Activity Log</h1>
-                <p className="text-neutral-400 mt-1">Recent proxy activity and events</p>
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold">Activity Log</h1>
+                    <p className="text-muted-foreground mt-1">Recent proxy activity and events</p>
+                </div>
+                <ActivityFilters onFilterChange={handleFilterChange} />
             </div>
 
-            <Input
-                placeholder="Filter by action or location..."
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="max-w-md bg-neutral-800 border-neutral-700 text-white"
-            />
-
-            <Card className="bg-neutral-800 border-neutral-700 p-6">
-                <div className="space-y-4">
-                    {filtered.map((activity) => (
-                        <div
-                            key={activity.id}
-                            className="flex items-center gap-4 p-4 bg-neutral-900 rounded-lg hover:bg-neutral-850 transition-colors"
-                        >
-                            <div className={`w-8 h-8 rounded-full ${getStatusColor(activity.status)} flex items-center justify-center text-white font-bold`}>
-                                {getStatusIcon(activity.status)}
-                            </div>
-                            <div className="flex-1">
-                                <div className="text-white font-medium">{activity.action}</div>
-                                <div className="text-sm text-neutral-400">
-                                    {activity.location} • {activity.ip}
-                                </div>
-                            </div>
-                            <div className="text-sm text-neutral-400">{activity.time}</div>
-                        </div>
-                    ))}
-                </div>
-
-                {filtered.length === 0 && (
-                    <div className="text-center py-12 text-neutral-400">
-                        No activities found matching your filter
-                    </div>
-                )}
-            </Card>
+            <ActivityLog activities={activities} onExport={handleExport} />
 
             <div className="flex justify-between items-center">
-                <div className="text-sm text-neutral-400">
-                    Showing {filtered.length} of {activities.length} activities
+                <div className="text-sm text-muted-foreground">
+                    Showing {activities.length} activities
                 </div>
                 <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-neutral-700 text-white rounded hover:bg-neutral-600 disabled:opacity-50" disabled>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={page === 1}
+                        onClick={() => setPage(page - 1)}
+                    >
                         Previous
-                    </button>
-                    <button className="px-4 py-2 bg-neutral-700 text-white rounded hover:bg-neutral-600">
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(page + 1)}
+                    >
                         Next
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>
