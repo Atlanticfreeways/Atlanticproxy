@@ -58,21 +58,21 @@
 
 ### Thursday (Day 4) - Backend-Frontend Wiring
 **Morning: Missing API Endpoints**
-- [ ] Add `GET /api/statistics/hourly` endpoint
-- [ ] Add `GET /api/statistics/countries` endpoint
-- [ ] Add `GET /api/statistics/protocols` endpoint
-- [ ] Add `GET /api/servers/list` endpoint
-- [ ] Add `GET /api/servers/status` endpoint
-- [ ] Add `GET /api/activity/log` endpoint
-- [ ] Add `GET /api/settings` endpoint
-- [ ] Add `POST /api/settings` endpoint
+- [x] Add `GET /api/statistics/hourly` endpoint
+- [x] Add `GET /api/statistics/countries` endpoint
+- [x] Add `GET /api/statistics/protocols` endpoint
+- [x] Add `GET /api/servers/list` endpoint
+- [x] Add `GET /api/servers/status` endpoint
+- [x] Add `GET /api/activity/log` endpoint
+- [x] Add `GET /api/settings` endpoint
+- [x] Add `POST /api/settings` endpoint
 
 **Afternoon: WebSocket Fixes**
-- [ ] Fix WebSocket URL in `lib/api.ts`
-- [ ] Add reconnection logic (3 retries, 2s delay)
-- [ ] Add heartbeat/ping every 30s
-- [ ] Test connection stability
-- [ ] Add connection status indicator in UI
+- [x] Fix WebSocket URL in `lib/api.ts`
+- [x] Add reconnection logic (3 retries, 2s delay)
+- [x] Add heartbeat/ping every 30s
+- [x] Test connection stability
+- [x] Add connection status indicator in UI
 
 ### Friday (Day 5) - Testing & Polish
 **Morning: Integration Testing**

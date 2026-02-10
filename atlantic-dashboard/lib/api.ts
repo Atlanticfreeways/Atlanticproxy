@@ -229,31 +229,77 @@ class ApiClient {
     }
 
     subscribeToStatus(callback: (status: ProxyStatus) => void): () => void {
+        let ws: WebSocket | null = null;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 3;
+        const reconnectDelay = 2000;
+        let heartbeatInterval: NodeJS.Timeout | null = null;
+        let isClosed = false;
 
-        const ws = new WebSocket(`${this.wsUrl}/ws`);
+        const connect = () => {
+            if (isClosed) return;
 
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                // Handle complex payloads or direct status updates
-                if (data.type === 'killswitch') {
-                    // Update specific field if needed, but usually we just broadcast full status
-                    // For now, let's assume if it's not a full status we might need to handle it
-                    // But our backend broadcast full status on connect/disconnect
-                } else {
-                    callback(data);
+            ws = new WebSocket(`${this.wsUrl}/ws`);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                reconnectAttempts = 0;
+                
+                // Start heartbeat
+                heartbeatInterval = setInterval(() => {
+                    if (ws?.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 30000);
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'pong') {
+                        // Heartbeat response, ignore
+                        return;
+                    }
+                    if (data.type === 'killswitch') {
+                        // Handle killswitch event
+                    } else {
+                        callback(data);
+                    }
+                } catch (error) {
+                    console.error('Failed to parse websocket message:', error);
                 }
-            } catch (error) {
-                console.error('Failed to parse websocket message:', error);
-            }
+            };
+
+            ws.onerror = (error) => {
+                console.error('Websocket error:', error);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                if (heartbeatInterval) {
+                    clearInterval(heartbeatInterval);
+                    heartbeatInterval = null;
+                }
+
+                // Attempt reconnection
+                if (!isClosed && reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    console.log(`Reconnecting... (${reconnectAttempts}/${maxReconnectAttempts})`);
+                    setTimeout(connect, reconnectDelay);
+                }
+            };
         };
 
-        ws.onerror = (error) => {
-            console.error('Websocket error:', error);
-        };
+        connect();
 
         return () => {
-            ws.close();
+            isClosed = true;
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+            }
+            if (ws) {
+                ws.close();
+            }
         };
     }
 

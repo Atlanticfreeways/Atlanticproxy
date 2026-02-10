@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -242,6 +243,22 @@ func (s *Server) setupRoutes() {
 	s.router.GET("/api/adblock/config", s.handleGetAdblockConfig)
 	s.router.POST("/api/adblock/category", s.handleToggleAdblockCategory)
 
+	// Statistics API
+	s.router.GET("/api/statistics/hourly", s.handleGetStatisticsHourly)
+	s.router.GET("/api/statistics/countries", s.handleGetStatisticsCountries)
+	s.router.GET("/api/statistics/protocols", s.handleGetStatisticsProtocols)
+
+	// Servers API
+	s.router.GET("/api/servers/list", s.handleGetServersList)
+	s.router.GET("/api/servers/status", s.handleGetServersStatus)
+
+	// Activity API
+	s.router.GET("/api/activity/log", middleware.JWTAuth(), s.handleGetActivityLog)
+
+	// Settings API
+	s.router.GET("/api/settings", middleware.JWTAuth(), s.handleGetSettings)
+	s.router.POST("/api/settings", middleware.JWTAuth(), s.handleUpdateSettings)
+
 	// Auth API
 	authGroup := s.router.Group("/api/auth")
 	{
@@ -277,10 +294,18 @@ func (s *Server) handleWS(c *gin.Context) {
 	conn.WriteJSON(s.status)
 
 	for {
-		// Read message (required to handle close messages)
-		_, _, err := conn.ReadMessage()
+		// Read message (required to handle close messages and ping)
+		_, message, err := conn.ReadMessage()
 		if err != nil {
 			break
+		}
+
+		// Handle ping/pong
+		var msg map[string]interface{}
+		if err := json.Unmarshal(message, &msg); err == nil {
+			if msgType, ok := msg["type"].(string); ok && msgType == "ping" {
+				conn.WriteJSON(map[string]string{"type": "pong"})
+			}
 		}
 	}
 }
