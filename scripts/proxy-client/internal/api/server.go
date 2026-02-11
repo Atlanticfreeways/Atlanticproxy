@@ -71,12 +71,15 @@ func NewServer(ab *adblock.Engine, ks *killswitch.Guardian, it *interceptor.TunI
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 
+	// Request size limit (10MB)
+	router.MaxMultipartMemory = 10 << 20
+
 	// Custom middleware stack (order matters)
 	router.Use(middleware.PanicRecovery(logrus.StandardLogger()))
 	router.Use(RecoveryMiddleware(logrus.StandardLogger()))
 	router.Use(RequestIDMiddleware())
 	router.Use(LoggingMiddleware(logrus.StandardLogger()))
-	router.Use(SecurityHeadersMiddleware())
+	router.Use(EnhancedSecurityHeadersMiddleware())
 
 	// CORS
 	router.Use(func(c *gin.Context) {
@@ -94,8 +97,8 @@ func NewServer(ab *adblock.Engine, ks *killswitch.Guardian, it *interceptor.TunI
 		c.Next()
 	})
 
-	// Rate Limiting
-	router.Use(RateLimiterMiddleware(bm))
+	// Global rate limiting
+	router.Use(middleware.APIRateLimit())
 
 	s := &Server{
 		router:           router,

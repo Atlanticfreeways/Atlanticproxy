@@ -158,25 +158,25 @@
 
 ### Friday (Day 5) - Security Hardening
 **Morning: Rate Limiting**
-- [ ] Install rate limiter: `go get golang.org/x/time/rate`
-- [ ] Create `internal/middleware/ratelimit.go`
-- [ ] Implement token bucket algorithm
-- [ ] Add per-endpoint limits (login: 5/min, API: 100/min)
-- [ ] Add per-user limits (store in Redis)
-- [ ] Add rate limit headers (X-RateLimit-*)
-- [ ] Test rate limiting with curl
+- [x] Install rate limiter: `go get golang.org/x/time/rate`
+- [x] Create `internal/middleware/ratelimit.go`
+- [x] Implement token bucket algorithm
+- [x] Add per-endpoint limits (login: 5/min, API: 100/min)
+- [x] Add per-user limits (store in Redis)
+- [x] Add rate limit headers (X-RateLimit-*)
+- [x] Test rate limiting with curl
 
 **Afternoon: Security Headers & Request Limits**
-- [ ] Add request size limit: `router.MaxMultipartMemory(10 << 20)`
-- [ ] Add security headers middleware
-- [ ] Add CSP header: `Content-Security-Policy`
-- [ ] Add HSTS header: `Strict-Transport-Security`
-- [ ] Add X-Frame-Options: `DENY`
-- [ ] Add X-Content-Type-Options: `nosniff`
-- [ ] Validate JWT secret length (min 32 chars)
-- [ ] Test with security scanner (OWASP ZAP)
+- [x] Add request size limit: `router.MaxMultipartMemory(10 << 20)`
+- [x] Add security headers middleware
+- [x] Add CSP header: `Content-Security-Policy`
+- [x] Add HSTS header: `Strict-Transport-Security`
+- [x] Add X-Frame-Options: `DENY`
+- [x] Add X-Content-Type-Options: `nosniff`
+- [x] Validate JWT secret length (min 32 chars)
+- [x] Test with security scanner (OWASP ZAP)
 
-**Week 1 Deliverable:** ✅ CI/CD running, PostgreSQL live, monitoring active
+**Week 1 Deliverable:** ✅ CI/CD running, PostgreSQL live, monitoring active - COMPLETE
 
 ---
 

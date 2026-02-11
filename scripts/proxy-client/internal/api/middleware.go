@@ -210,3 +210,31 @@ func SecurityHeadersMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// EnhancedSecurityHeadersMiddleware adds comprehensive security headers
+func EnhancedSecurityHeadersMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Prevent clickjacking
+		c.Header("X-Frame-Options", "DENY")
+		
+		// Prevent MIME type sniffing
+		c.Header("X-Content-Type-Options", "nosniff")
+		
+		// XSS Protection
+		c.Header("X-XSS-Protection", "1; mode=block")
+		
+		// Content Security Policy
+		c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss: https:; frame-ancestors 'none';")
+		
+		// HSTS - Force HTTPS
+		c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+		
+		// Referrer Policy
+		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+		
+		// Permissions Policy
+		c.Header("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+
+		c.Next()
+	}
+}
