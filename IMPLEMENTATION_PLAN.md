@@ -123,12 +123,12 @@
 
 ### Wednesday (Day 3) - Monitoring Stack (Part 1)
 **Morning: Prometheus + Grafana**
-- [ ] Create `docker/monitoring.yml` compose file
-- [ ] Add Prometheus service (port 9090)
-- [ ] Add Grafana service (port 3001)
-- [ ] Configure Prometheus to scrape `/metrics`
-- [ ] Import Grafana dashboards (Go metrics, HTTP metrics)
-- [ ] Test metrics collection
+- [x] Create `docker/monitoring.yml` compose file
+- [x] Add Prometheus service (port 9090)
+- [x] Add Grafana service (port 3001)
+- [x] Configure Prometheus to scrape `/metrics`
+- [x] Import Grafana dashboards (Go metrics, HTTP metrics)
+- [x] Test metrics collection
 
 **Afternoon: Sentry Setup**
 - [ ] Create Sentry account (sentry.io)
@@ -142,19 +142,19 @@
 
 ### Thursday (Day 4) - Monitoring Stack (Part 2)
 **Morning: Loki + Promtail**
-- [ ] Add Loki service to `docker/monitoring.yml`
-- [ ] Add Promtail service (log collector)
-- [ ] Configure Promtail to collect Go logs
-- [ ] Configure Promtail to collect Next.js logs
-- [ ] Add Loki data source to Grafana
-- [ ] Create log dashboard in Grafana
+- [x] Add Loki service to `docker/monitoring.yml`
+- [x] Add Promtail service (log collector)
+- [x] Configure Promtail to collect Go logs
+- [x] Configure Promtail to collect Next.js logs
+- [x] Add Loki data source to Grafana
+- [x] Create log dashboard in Grafana
 
 **Afternoon: AlertManager**
-- [ ] Add AlertManager service to compose file
-- [ ] Configure alert rules (CPU >80%, Memory >90%, Error rate >1%)
-- [ ] Set up Slack webhook for alerts
-- [ ] Test alerts with sample conditions
-- [ ] Document alert response procedures
+- [x] Add AlertManager service to compose file
+- [x] Configure alert rules (CPU >80%, Memory >90%, Error rate >1%)
+- [x] Set up Slack webhook for alerts
+- [x] Test alerts with sample conditions
+- [x] Document alert response procedures
 
 ### Friday (Day 5) - Security Hardening
 **Morning: Rate Limiting**
