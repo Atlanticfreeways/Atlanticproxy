@@ -68,13 +68,29 @@ npm run dev
 
 ## 📚 Documentation
 
+### Getting Started
 - **[Quick Start](About%20the%20Proj/DEVELOPER_QUICK_START.md)** - Get started in 5 minutes
+- **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation
+- **[Testing Strategy](docs/TESTING_STRATEGY.md)** - Testing guidelines and coverage
+- **[Deployment Guide](docs/DEPLOYMENT_GUIDE.md)** - Production deployment steps
+
+### Project Planning
+- **[Implementation Plan](IMPLEMENTATION_PLAN.md)** - 5-week development plan
 - **[Roadmap](ROADMAP.md)** - Product roadmap and timeline
-- **[Changelog](CHANGELOG.md)** - Version history
+- **[Pricing Strategy](PRICING_STRATEGY_V2.md)** - Pricing tiers and revenue model
+
+### Technical Documentation
 - **[Architecture](About%20the%20Proj/ARCHITECTURE_OVERVIEW.md)** - System design
-- **[API Reference](docs/API_REFERENCE.md)** - Complete API docs
 - **[Provider Analysis](PROVIDER_ANALYSIS.md)** - Proxy provider comparison
-- **[Documentation Index](DOCUMENTATION_INDEX.md)** - All documentation
+- **[Production Readiness](PRODUCTION_READINESS.md)** - Production assessment
+
+### Progress Tracking
+- **[Week 0 Completion](WEEK_0_COMPLETION.md)** - Dashboard implementation
+- **[Week 1 Completion](WEEK_1_COMPLETION.md)** - Infrastructure deployment
+- **[Changelog](CHANGELOG.md)** - Version history
+
+### All Documentation
+- **[Documentation Index](DOCUMENTATION_INDEX.md)** - Complete documentation list
 
 ---
 
