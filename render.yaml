@@ -4,8 +4,10 @@ services:
     env: go
     region: oregon
     plan: starter
-    buildCommand: cd scripts/proxy-client && go build -tags netgo -ldflags '-s -w' -o app ./cmd/service
-    startCommand: cd scripts/proxy-client && ./app
+    buildCommand: |
+      cd scripts/proxy-client
+      go build -tags netgo -ldflags '-s -w' -o app ./cmd/service
+    startCommand: ./scripts/proxy-client/app
     envVars:
       - key: PORT
         value: 8082
