@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: atlanticproxy-backend
+    env: go
+    region: oregon
+    plan: starter
+    rootDir: scripts/proxy-client
+    buildCommand: go build -tags netgo -ldflags '-s -w' -o app ./cmd/service
+    startCommand: ./app
+    envVars:
+      - key: PORT
+        value: 8082
+      - key: ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: GO_VERSION
+        value: 1.24.0
+    healthCheckPath: /health
