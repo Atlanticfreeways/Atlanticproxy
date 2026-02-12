@@ -4,9 +4,8 @@ services:
     env: go
     region: oregon
     plan: starter
-    rootDir: scripts/proxy-client
-    buildCommand: go build -tags netgo -ldflags '-s -w' -o app ./cmd/service
-    startCommand: ./app
+    buildCommand: cd scripts/proxy-client && go build -tags netgo -ldflags '-s -w' -o app ./cmd/service
+    startCommand: cd scripts/proxy-client && ./app
     envVars:
       - key: PORT
         value: 8082
@@ -14,6 +13,4 @@ services:
         value: production
       - key: LOG_LEVEL
         value: info
-      - key: GO_VERSION
-        value: 1.24.0
     healthCheckPath: /health
